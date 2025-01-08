@@ -94,14 +94,17 @@ class IMPORT_OT_splatoon_fbx(bpy.types.Operator):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
     
-def find_albedo_texture(nodes):
-    """Find the albedo texture node specifically"""
+def find_base_texture(nodes):
+    """Find the first texture with any of the relevant suffixes."""
+    suffixes = ['_Alb', '_Nrm', '_Rgh', '_Emm', '_Emi', '_Mtl', '_Opa']
     for node in nodes:
         if node.type == 'TEX_IMAGE' and node.image:
             image_path = bpy.path.abspath(node.image.filepath)
-            if '_Alb' in image_path:
-                return image_path
-    return None
+            for suffix in suffixes:
+                if suffix in image_path:
+                    base_name = os.path.basename(image_path).split(suffix)[0]
+                    return image_path, base_name
+    return None, None
 
 def process_imported_fbx_after_delay(file_name):
     """Wait until FBX import finishes before processing meshes."""
@@ -123,10 +126,10 @@ def process_imported_fbx_after_delay(file_name):
                             if link.to_node == material_processor.principled_node and link.to_socket.name == "Alpha":
                                 material_processor.material.node_tree.links.remove(link)
 
-                        image_path = find_albedo_texture(mat_slot.material.node_tree.nodes)
-                        if image_path:
+                        # Find base texture to derive base_name
+                        image_path, base_name = find_base_texture(mat_slot.material.node_tree.nodes)
+                        if base_name:
                             texture_dir = os.path.dirname(image_path)
-                            base_name = os.path.basename(image_path).split('_Alb')[0]
                             material_processor.link_texture(texture_dir, base_name, "_Mtl", "Metallic", non_color=True)
                             material_processor.link_texture(texture_dir, base_name, "_Rgh", "Roughness", non_color=True)
                             material_processor.link_texture(texture_dir, base_name, "_Opa", "Alpha", non_color=True)
