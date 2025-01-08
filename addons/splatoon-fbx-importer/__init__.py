@@ -75,18 +75,18 @@ class IMPORT_OT_splatoon_fbx(bpy.types.Operator):
     bl_idname = "import_scene.splatoon_fbx"
     bl_label = "Splatoon FBX (.fbx)"
     bl_options = {'REGISTER', 'UNDO'}
-
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
 
     def execute(self, context):
-        # Get the file name without extension
+
+        file_path = os.path.dirname(self.filepath)
         file_name = os.path.splitext(os.path.basename(self.filepath))[0]
         
         # Call the default FBX importer
         bpy.ops.import_scene.fbx(filepath=self.filepath)
 
         # Register timer with the file name parameter
-        bpy.app.timers.register(lambda: process_imported_fbx_after_delay(file_name))
+        bpy.app.timers.register(lambda: process_imported_fbx_after_delay(file_path, file_name))
 
         return {'FINISHED'}
 
@@ -94,19 +94,17 @@ class IMPORT_OT_splatoon_fbx(bpy.types.Operator):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
     
-def find_base_texture(nodes):
-    """Find the first texture with any of the relevant suffixes."""
-    suffixes = ['_Alb', '_Nrm', '_Rgh', '_Emm', '_Emi', '_Mtl', '_Opa']
-    for node in nodes:
-        if node.type == 'TEX_IMAGE' and node.image:
-            image_path = bpy.path.abspath(node.image.filepath)
-            for suffix in suffixes:
-                if suffix in image_path:
-                    base_name = os.path.basename(image_path).split(suffix)[0]
-                    return image_path, base_name
-    return None, None
+def find_base_from_material(material):
+    """Extract base_name from the material name."""
+    if not material:
+        return None  # If no material is provided, return None
 
-def process_imported_fbx_after_delay(file_name):
+    # Remove suffixes like '.001', '.002', etc.
+    base_name = material.name.split('.')[0]
+    base_name = base_name.split('_')[0]
+    return base_name
+
+def process_imported_fbx_after_delay(file_path, file_name):
     """Wait until FBX import finishes before processing meshes."""
     if bpy.context.selected_objects:
         for obj in bpy.context.selected_objects:
@@ -126,14 +124,11 @@ def process_imported_fbx_after_delay(file_name):
                             if link.to_node == material_processor.principled_node and link.to_socket.name == "Alpha":
                                 material_processor.material.node_tree.links.remove(link)
 
-                        # Find base texture to derive base_name
-                        image_path, base_name = find_base_texture(mat_slot.material.node_tree.nodes)
-                        if base_name:
-                            texture_dir = os.path.dirname(image_path)
-                            material_processor.link_texture(texture_dir, base_name, "_Mtl", "Metallic", non_color=True)
-                            material_processor.link_texture(texture_dir, base_name, "_Rgh", "Roughness", non_color=True)
-                            material_processor.link_texture(texture_dir, base_name, "_Opa", "Alpha", non_color=True)
-                            material_processor.link_texture(texture_dir, base_name, "_Nrm", "Normal", non_color=True, is_normal_map=True)
+                        base_name = find_base_from_material(mat_slot.material)
+                        material_processor.link_texture(file_path, base_name, "_Mtl", "Metallic", non_color=True)
+                        material_processor.link_texture(file_path, base_name, "_Rgh", "Roughness", non_color=True)
+                        material_processor.link_texture(file_path, base_name, "_Opa", "Alpha", non_color=True)
+                        material_processor.link_texture(file_path, base_name, "_Nrm", "Normal", non_color=True, is_normal_map=True)
                         
         return None  # Stop the timer
     return 0.1  # Retry after 0.1 seconds
