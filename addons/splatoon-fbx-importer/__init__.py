@@ -125,6 +125,18 @@ class IMPORT_OT_splatoon_fbx(bpy.types.Operator):
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
+    
+def find_base_texture(nodes):
+    """Find the first texture with any of the relevant suffixes."""
+    suffixes = ['_Alb', '_Emm', '_Emi']
+    for node in nodes:
+        if node.type == 'TEX_IMAGE' and node.image:
+            image_path = bpy.path.abspath(node.image.filepath)
+            for suffix in suffixes:
+                if suffix in image_path:
+                    base_name = os.path.basename(image_path).split(suffix)[0]
+                    return base_name
+    return None
 
 def find_base_from_material(material):
     """Extract base_name from the material name."""
@@ -132,9 +144,7 @@ def find_base_from_material(material):
         return None  # If no material is provided, return None
 
     # Remove suffixes like '.001', '.002', etc.
-    base_name = material.name.split('.')[0]
-    base_name = base_name.split('_')[0]
-    return base_name
+    return material.name.split('.')[0]
 
 def process_imported_fbx_after_delay(file_path, file_name):
     """Wait until FBX import finishes before processing meshes."""
@@ -161,7 +171,8 @@ def process_imported_fbx_after_delay(file_path, file_name):
                             link.to_socket.name == "Alpha"):
                             material_processor.material.node_tree.links.remove(link)
                     
-                    base_name = find_base_from_material(mat_slot.material)
+                    base_name = find_base_texture(mat_slot.material.node_tree.nodes) or find_base_from_material(mat_slot.material)
+
                     material_processor.link_texture(file_path, base_name, "_Mtl", "Metallic", non_color=True)
                     material_processor.link_texture(file_path, base_name, "_Rgh", "Roughness", non_color=True)
                     material_processor.link_texture(file_path, base_name, "_Opa", "Alpha", non_color=True)
