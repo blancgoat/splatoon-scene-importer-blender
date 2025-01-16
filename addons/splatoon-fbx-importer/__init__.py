@@ -33,12 +33,37 @@ class MaterialProcessor:
             self.principled_node.inputs['Metallic'].default_value = value
 
     def link_texture(self, texture_dir, base_name, suffix, input_name, non_color=False, is_normal_map=False):
-        """Link a texture to a material input."""
+        """
+        Link a texture to a material input.
+        
+        Args:
+            texture_dir: Directory containing textures
+            base_name: Base name of the texture
+            suffix: Texture suffix (in lowercase)
+            input_name: Name of the input to connect to
+            non_color: Whether to set colorspace to Non-Color
+            is_normal_map: Whether this is a normal map
+        """
         if not self.principled_node:
             return
+            
+        # Find the actual texture file with case-insensitive suffix
+        def find_texture_file(dir_path, base, sfx):
+            # Get all files in the directory
+            try:
+                files = os.listdir(dir_path)
+                expected_filename = f"{base}{sfx}.png"
+                
+                # Case-insensitive search for the file
+                for file in files:
+                    if file.lower() == expected_filename.lower():
+                        return os.path.join(dir_path, file)
+            except (OSError, FileNotFoundError):
+                return None
+            return None
 
-        texture_path = os.path.join(texture_dir, f"{base_name}{suffix}.png")
-        if not os.path.exists(texture_path):
+        texture_path = find_texture_file(texture_dir, base_name, suffix)
+        if not texture_path:
             return
 
         # Create a new image texture node
@@ -127,15 +152,29 @@ class IMPORT_OT_splatoon_fbx(bpy.types.Operator):
         return {'RUNNING_MODAL'}
     
 def find_base_texture(nodes):
-    """Find the first texture with any of the relevant suffixes."""
+    import re
+    
+    # Define base suffixes
     suffixes = ['_Alb', '_Emm', '_Emi']
+    
+    # 각 suffix를 정규표현식 패턴으로 변환
+    # re.escape()를 사용하여 특수문자가 있을 경우 처리
+    patterns = [re.compile(re.escape(suffix), re.IGNORECASE) for suffix in suffixes]
+    
     for node in nodes:
         if node.type == 'TEX_IMAGE' and node.image:
             image_path = bpy.path.abspath(node.image.filepath)
-            for suffix in suffixes:
-                if suffix in image_path:
-                    base_name = os.path.basename(image_path).split(suffix)[0]
+            basename = os.path.basename(image_path)
+            
+            # 각 패턴에 대해 검사
+            for pattern, original_suffix in zip(patterns, suffixes):
+                match = pattern.search(basename)
+                if match:
+                    # 실제 찾은 suffix를 사용
+                    found_suffix = basename[match.start():match.end()]
+                    base_name = basename[:match.start()]
                     return base_name
+                    
     return None
 
 def find_base_from_material(material):
@@ -173,10 +212,10 @@ def process_imported_fbx_after_delay(file_path, file_name):
                     
                     base_name = find_base_texture(mat_slot.material.node_tree.nodes) or find_base_from_material(mat_slot.material)
 
-                    material_processor.link_texture(file_path, base_name, "_Mtl", "Metallic", non_color=True)
-                    material_processor.link_texture(file_path, base_name, "_Rgh", "Roughness", non_color=True)
-                    material_processor.link_texture(file_path, base_name, "_Opa", "Alpha", non_color=True)
-                    material_processor.link_texture(file_path, base_name, "_Nrm", "Normal", non_color=True, is_normal_map=True)
+                    material_processor.link_texture(file_path, base_name, "_mtl", "Metallic", non_color=True)
+                    material_processor.link_texture(file_path, base_name, "_rgh", "Roughness", non_color=True)
+                    material_processor.link_texture(file_path, base_name, "_opa", "Alpha", non_color=True)
+                    material_processor.link_texture(file_path, base_name, "_nrm", "Normal", non_color=True, is_normal_map=True)
     
     # 현재 파일 처리 완료
     imported_objects.pop(0)
