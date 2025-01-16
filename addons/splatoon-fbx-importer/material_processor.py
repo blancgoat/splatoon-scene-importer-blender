@@ -14,26 +14,7 @@ class MaterialProcessor:
                 return node
         return None
 
-    def set_metallic_value(self, value):
-        """Set the metallic value for the material."""
-        if self.principled_node:
-            self.principled_node.inputs['Metallic'].default_value = value
-
-    def link_texture(self, texture_dir, base_name, suffix, input_name, non_color=False, is_normal_map=False):
-        """
-        Link a texture to a material input.
-        
-        Args:
-            texture_dir: Directory containing textures
-            base_name: Base name of the texture
-            suffix: Texture suffix (in lowercase)
-            input_name: Name of the input to connect to
-            non_color: Whether to set colorspace to Non-Color
-            is_normal_map: Whether this is a normal map
-        """
-        if not self.principled_node:
-            return
-            
+    def import_texture(self, texture_dir, base_name, suffix, non_color=False):
         # Find the actual texture file with case-insensitive suffix
         def find_texture_file(dir_path, base, sfx):
             # Get all files in the directory
@@ -48,25 +29,37 @@ class MaterialProcessor:
             except (OSError, FileNotFoundError):
                 return None
             return None
-
+        
         texture_path = find_texture_file(texture_dir, base_name, suffix)
         if not texture_path:
-            return
-
+            return False
+        
         # Create a new image texture node
         tex_image_node = self.material.node_tree.nodes.new('ShaderNodeTexImage')
         tex_image_node.image = bpy.data.images.load(texture_path)
         if non_color:
             tex_image_node.image.colorspace_settings.name = 'Non-Color'
 
-        if is_normal_map:
-            # Create and connect a normal map node
+        return tex_image_node
+
+    def link_texture_principled_node(self, tex_image_node, input_name):
+        if not tex_image_node:
+            return
+        self.material.node_tree.links.new(tex_image_node.outputs['Color'], self.principled_node.inputs[input_name])
+    
+    def link_texture_normal(self, tex_image_node, input_name):
+        if not tex_image_node:
+            return
+        
+        for link in self.material.node_tree.links:
+            if (link.to_node == self.principled_node and link.to_socket.name == 'Normal'):
+                normal_map_node = link.from_node
+
+        if not normal_map_node:
             normal_map_node = self.material.node_tree.nodes.new('ShaderNodeNormalMap')
-            self.material.node_tree.links.new(tex_image_node.outputs['Color'], normal_map_node.inputs['Color'])
-            self.material.node_tree.links.new(normal_map_node.outputs['Normal'], self.principled_node.inputs[input_name])
-        else:
-            # Directly connect the texture to the specified input
-            self.material.node_tree.links.new(tex_image_node.outputs['Color'], self.principled_node.inputs[input_name])
+
+        self.material.node_tree.links.new(tex_image_node.outputs['Color'], normal_map_node.inputs['Color'])
+        self.material.node_tree.links.new(normal_map_node.outputs['Normal'], self.principled_node.inputs[input_name])
 
     def _is_grayscale_image(self, image):
         """흑백 이미지 여부 확인"""
@@ -102,24 +95,6 @@ class MaterialProcessor:
                 self.material.node_tree.links.new(base_color_input.links[0].from_node.outputs['Color'], mix_node.inputs[1])
             self.material.node_tree.links.new(emission_node.outputs['Color'], mix_node.inputs[2])
             self.material.node_tree.links.new(mix_node.outputs['Color'], self.principled_node.inputs['Emission Color'])
-
-    def handle_alpha_connection(self, texture_dir, base_name):
-        """Handle the alpha connection, removing existing links and connecting _Opa."""
-        if not self.principled_node:
-            return
-
-        # Remove existing alpha links unconditionally
-        for link in self.material.node_tree.links:
-            if link.to_node == self.principled_node and link.to_socket.name == "Alpha":
-                self.material.node_tree.links.remove(link)
-
-        # Check for _Opa texture and connect if available
-        alpha_path = os.path.join(texture_dir, f"{base_name}_Opa.png")
-        if os.path.exists(alpha_path):
-            tex_image_node = self.material.node_tree.nodes.new('ShaderNodeTexImage')
-            tex_image_node.image = bpy.data.images.load(alpha_path)
-            tex_image_node.image.colorspace_settings.name = 'Non-Color'
-            self.material.node_tree.links.new(tex_image_node.outputs['Color'], self.principled_node.inputs['Alpha'])
 
     def find_base_texture(nodes):        
         # Define base suffixes

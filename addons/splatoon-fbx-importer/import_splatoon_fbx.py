@@ -76,19 +76,34 @@ def process_imported_fbx_after_delay(file_path, file_name):
             for mat_slot in obj.material_slots:
                 if mat_slot.material and mat_slot.material.use_nodes:
                     material_processor = MaterialProcessor(mat_slot.material)
-                    material_processor.set_metallic_value(0.0)
                     
+                    # metallic to 0
+                    material_processor.principled_node.inputs['Metallic'].default_value = 0
+                    
+                    # Alpha unlink (made by blender) (지우진 않음 가끔쓸때가있어서)
                     for link in material_processor.material.node_tree.links:
                         if (link.to_node == material_processor.principled_node and 
-                            link.to_socket.name == "Alpha"):
+                            link.to_socket.name == 'Alpha'):
                             material_processor.material.node_tree.links.remove(link)
                     
                     base_name = MaterialProcessor.find_base_texture(mat_slot.material.node_tree.nodes) or MaterialProcessor.find_base_from_material(mat_slot.material)
-
-                    material_processor.link_texture(file_path, base_name, "_mtl", "Metallic", non_color=True)
-                    material_processor.link_texture(file_path, base_name, "_rgh", "Roughness", non_color=True)
-                    material_processor.link_texture(file_path, base_name, "_opa", "Alpha", non_color=True)
-                    material_processor.link_texture(file_path, base_name, "_nrm", "Normal", non_color=True, is_normal_map=True)
+                    
+                    material_processor.link_texture_principled_node(
+                        material_processor.import_texture(file_path, base_name, '_mtl', non_color=True),
+                        'Metallic'
+                    )
+                    material_processor.link_texture_principled_node(
+                        material_processor.import_texture(file_path, base_name, '_rgh', non_color=True),
+                        'Roughness'
+                    )
+                    material_processor.link_texture_principled_node(
+                        material_processor.import_texture(file_path, base_name, '_opa', non_color=True),
+                        'Alpha'
+                    )
+                    material_processor.link_texture_normal(
+                        material_processor.import_texture(file_path, base_name, '_nrm', non_color=True),
+                        'Normal'
+                    )
 
                     material_processor.handle_emission()
     
