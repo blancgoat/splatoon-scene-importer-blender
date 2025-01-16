@@ -21,6 +21,11 @@ class ImportSplatoonFbx(bpy.types.Operator):
         options={'HIDDEN'},
     )
 
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(context.scene, 'is_scale_armature_splatoon_fbx_importer')
+        layout.prop(context.scene, 'scale_value_splatoon_fbx_importer')
+
     def execute(self, context):
         global processing_queue, imported_objects
         processing_queue.clear()
@@ -70,7 +75,9 @@ def process_imported_fbx_after_delay(file_path, file_name):
     # 현재 파일의 오브젝트만 처리
     for obj in current_objects:
         if obj.type == 'ARMATURE':
-            obj.scale = (1.0, 1.0, 1.0)
+            if bpy.context.scene.is_scale_armature_splatoon_fbx_importer:
+                scale = bpy.context.scene.scale_value_splatoon_fbx_importer
+                obj.scale = (scale, scale, scale)
             obj.name = current_file_name  # 현재 파일 이름으로 설정
         elif obj.type == 'MESH':
             for mat_slot in obj.material_slots:
