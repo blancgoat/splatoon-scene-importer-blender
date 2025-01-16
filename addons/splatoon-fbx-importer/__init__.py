@@ -81,6 +81,47 @@ class MaterialProcessor:
             # Directly connect the texture to the specified input
             self.material.node_tree.links.new(tex_image_node.outputs['Color'], self.principled_node.inputs[input_name])
 
+    def is_grayscale_image(self, image):
+        """흑백 이미지 여부 확인"""
+        if not image or not image.has_data:
+            return True  # 데이터가 없으면 흑백으로 간주
+        pixels = image.pixels[:]
+        for i in range(0, len(pixels), 4):  # RGBA -> 4개씩 묶음
+            r, g, b = pixels[i], pixels[i + 1], pixels[i + 2]
+            if r != g or g != b or b != r:
+                return False  # 색상이 다르면 컬러
+        return True  # 모두 동일하면 흑백
+
+    def handle_emission(self):
+        """emission파일이 흑백일경우 적절히 조치"""
+        if not self.principled_node:
+            return
+
+        # Emission 노드의 Color 출력이 Principled BSDF의 Emission 입력에 연결되어 있는지 확인
+        emission_node = None
+        for link in self.material.node_tree.links:
+            if (link.to_node == self.principled_node and link.to_socket.name == 'Emission Color'):
+                if link.from_node.type == 'TEX_IMAGE':
+                    emission_node = link.from_node
+                    break
+
+        if emission_node:
+            # 컬러면 진행하지않음
+            if not (emission_node.image and self.is_grayscale_image(emission_node.image)):
+                return
+            
+            emission_node.image.colorspace_settings.name = 'Non-Color'
+
+            mix_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
+            mix_node.blend_type = 'MULTIPLY'
+            mix_node.inputs['Fac'].default_value = 1.0
+
+            base_color_input = self.principled_node.inputs['Base Color']
+            if base_color_input.is_linked:
+                self.material.node_tree.links.new(base_color_input.links[0].from_node.outputs['Color'], mix_node.inputs[1])
+            self.material.node_tree.links.new(emission_node.outputs['Color'], mix_node.inputs[2])
+            self.material.node_tree.links.new(mix_node.outputs['Color'], self.principled_node.inputs['Emission Color'])
+
     def handle_alpha_connection(self, texture_dir, base_name):
         """Handle the alpha connection, removing existing links and connecting _Opa."""
         if not self.principled_node:
@@ -216,6 +257,8 @@ def process_imported_fbx_after_delay(file_path, file_name):
                     material_processor.link_texture(file_path, base_name, "_rgh", "Roughness", non_color=True)
                     material_processor.link_texture(file_path, base_name, "_opa", "Alpha", non_color=True)
                     material_processor.link_texture(file_path, base_name, "_nrm", "Normal", non_color=True, is_normal_map=True)
+
+                    material_processor.handle_emission()
     
     # 현재 파일 처리 완료
     imported_objects.pop(0)
