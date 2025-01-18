@@ -58,7 +58,6 @@ class SplatoonSceneImporter(bpy.types.Operator):
 
         return {'PASS_THROUGH'}
 
-    # TODO 텍스처 2번씩 import되는 버그있음
     def execute(self, context):
         self.queue = Queueing(self.files, self.directory)
 

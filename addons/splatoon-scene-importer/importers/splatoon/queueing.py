@@ -17,38 +17,34 @@ class Queueing:
             file_ext = file_splitext[1].lower()
             self.processing_queue.append((file_path, dir_path, file_name, file_ext))
 
-    def process_material(self, obj, file_path):
+    def process_material(self, matarial, file_path):
         """머티리얼 처리 함수"""
-        for mat_slot in obj.material_slots:
-            if not (mat_slot.material and mat_slot.material.use_nodes):
-                continue
+        material_processor = MaterialProcessor(matarial, file_path)
 
-            material_processor = MaterialProcessor(mat_slot.material, file_path)
+        # metallic to 0
+        material_processor.principled_node.inputs['Metallic'].default_value = 0
 
-            # metallic to 0
-            material_processor.principled_node.inputs['Metallic'].default_value = 0
+        # unlink alpha
+        for link in material_processor.material.node_tree.links:
+            if (link.to_node == material_processor.principled_node and
+                link.to_socket.name == 'Alpha'):
+                material_processor.material.node_tree.links.remove(link)
 
-            # Alpha unlink
-            for link in material_processor.material.node_tree.links:
-                if (link.to_node == material_processor.principled_node and
-                    link.to_socket.name == 'Alpha'):
-                    material_processor.material.node_tree.links.remove(link)
-
-            # link textures
-            material_processor.link_texture_principled_node(
-                material_processor.import_texture('_mtl', non_color=True),
-                'Metallic'
-            )
-            material_processor.link_texture_principled_node(
-                material_processor.import_texture('_rgh', non_color=True),
-                'Roughness'
-            )
-            material_processor.link_texture_principled_node(
-                material_processor.import_texture('_opa', non_color=True),
-                'Alpha'
-            )
-            material_processor.import_normal()
-            material_processor.handle_emission()
+        # link textures
+        material_processor.link_texture_principled_node(
+            material_processor.import_texture('_mtl', non_color=True),
+            'Metallic'
+        )
+        material_processor.link_texture_principled_node(
+            material_processor.import_texture('_rgh', non_color=True),
+            'Roughness'
+        )
+        material_processor.link_texture_principled_node(
+            material_processor.import_texture('_opa', non_color=True),
+            'Alpha'
+        )
+        material_processor.import_normal()
+        material_processor.handle_emission()
 
     def process_armature(self, obj, file_name):
         """아마추어 처리 함수"""
@@ -73,11 +69,17 @@ class Queueing:
 
     def process_imported_objects(self, objects, file_name, file_path):
         """임포트된 객체들 처리 함수"""
+        materials = set()
         for obj in objects:
             if obj.type == 'ARMATURE':
                 self.process_armature(obj, file_name)
             elif obj.type == 'MESH':
-                self.process_material(obj, file_path)
+                for slot in obj.material_slots:
+                    if slot.material and slot.material.use_nodes:
+                        materials.add(slot.material)
+
+        for material in materials:
+            self.process_material(material, file_path)
 
     def process_next_file(self):
         """큐의 다음 파일 처리 함수"""
