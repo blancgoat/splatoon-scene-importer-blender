@@ -1,6 +1,9 @@
 import bpy
 from .importers.splatoon.queueing import Queueing
 from .utilities.DAE_OT_import_via_fbx import NotFoundConvertModule, FailConvert
+from bpy_extras.io_utils import (
+    poll_file_object_drop,
+)
 
 class SplatoonSceneImporter(bpy.types.Operator):
     bl_idname = "import_scene.splatoon_scene_importer"
@@ -71,3 +74,13 @@ class SplatoonSceneImporter(bpy.types.Operator):
         if self._timer:
             context.window_manager.event_timer_remove(self._timer)
             self._timer = None
+
+class IO_FH_splatoon(bpy.types.FileHandler):
+    bl_idname = "IO_FH_splatoon"
+    bl_label = "import Splatoon scene"
+    bl_import_operator = "import_scene.splatoon_scene_importer"
+    bl_file_extensions = ".dae;.fbx"
+
+    @classmethod
+    def poll_drop(cls, context):
+        return poll_file_object_drop(context)
