@@ -86,16 +86,9 @@ class Queueing:
 
         file_path, dir_path, file_name, file_ext = self.processing_queue.popleft()
 
-        try:
-            prev_selected = set(obj.name for obj in bpy.context.selected_objects)
-            new_objects = self.import_file(file_path, file_ext)
-            self.process_imported_objects(new_objects, file_name, dir_path)
-            bpy.ops.object.select_all(action='DESELECT')
+        prev_selected = set(obj.name for obj in bpy.context.selected_objects)
+        new_objects = self.import_file(file_path, file_ext)
+        self.process_imported_objects(new_objects, file_name, dir_path)
+        bpy.ops.object.select_all(action='DESELECT')
 
-            return 0.1  # Continue timer for next file
-        except (NotFoundConvertModule, FailConvert) as e:
-            bpy.types.Scene.import_error = (str(e), file_name)
-            return None
-        except Exception as e:
-            bpy.types.Scene.import_error = (str(e), file_name)
-            return None
+        return True
