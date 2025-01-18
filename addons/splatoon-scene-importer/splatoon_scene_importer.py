@@ -75,10 +75,17 @@ class SplatoonSceneImporter(bpy.types.Operator):
             context.window_manager.event_timer_remove(self._timer)
             self._timer = None
 
+class SplatoonSceneImporterDragDrop(SplatoonSceneImporter):
+    bl_idname = "import_scene.splatoon_scene_importer_dragdrop"
+    bl_label = "Import Splatoon scene"
+
+    def invoke(self, context, event):
+        return self.execute(context)
+
 class IO_FH_splatoon(bpy.types.FileHandler):
     bl_idname = "IO_FH_splatoon"
     bl_label = "import Splatoon scene"
-    bl_import_operator = "import_scene.splatoon_scene_importer"
+    bl_import_operator = "import_scene.splatoon_scene_importer_dragdrop"
     bl_file_extensions = ".dae;.fbx"
 
     @classmethod
