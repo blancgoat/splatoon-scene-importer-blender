@@ -55,7 +55,7 @@ class MaterialProcessor:
             try:
                 files = os.listdir(dir_path)
                 expected_filename = f"{base}{sfx}.png"
-                
+
                 # Case-insensitive search for the file
                 for file in files:
                     if file.lower() == expected_filename.lower():
@@ -63,11 +63,11 @@ class MaterialProcessor:
             except (OSError, FileNotFoundError):
                 return None
             return None
-        
+
         texture_path = find_texture_file(self.file_path, self.base_name, suffix)
         if not texture_path:
             return False
-        
+
         # Create a new image texture node
         tex_image_node = self.material.node_tree.nodes.new('ShaderNodeTexImage')
         tex_image_node.image = bpy.data.images.load(texture_path)
@@ -80,12 +80,12 @@ class MaterialProcessor:
         if not tex_image_node:
             return
         self.material.node_tree.links.new(tex_image_node.outputs['Color'], self.principled_node.inputs[input_name])
-    
+
     def import_normal(self):
         tex_image_node = self.import_texture('_nrm', non_color=True)
         if not tex_image_node:
             return
-        
+
         for link in self.material.node_tree.links:
             if (link.to_node == self.principled_node and link.to_socket.name == 'Normal'):
                 normal_map_node = link.from_node
@@ -96,22 +96,127 @@ class MaterialProcessor:
         self.material.node_tree.links.new(tex_image_node.outputs['Color'], normal_map_node.inputs['Color'])
         self.material.node_tree.links.new(normal_map_node.outputs['Normal'], self.principled_node.inputs['Normal'])
 
-    # TODO tcl과 alb 을 mix하고 이후 mai를 multiple해야할듯, alb관련 텍스쳐니까 걍 한함수로 컨트롤해야하나?
-    def import_team_color(self):
-        pass
+    def import_second_alb(self):
+        """
+        Import and setup secondary albedo textures (_tlc and _mai).
+        First handles _tlc texture with a mix node, then _mai texture with a multiply node if present.
+        """
+        # Get the current connection to Base Color
+        base_color_input = self.principled_node.inputs['Base Color']
+        original_color_node = base_color_input.links[0].from_node if base_color_input.is_linked else None
 
-    def import_mai(self):
-        pass
+        # Handle _tcl texture
+        tcl_node = self.import_texture('_tcl', non_color=True)
+        if tcl_node:
+            # Create mix node for TCL
+            mix_color_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
+            mix_color_node.blend_type = 'MIX'
 
-    # TODO 쉐이더로 관리하는건 기정사실인데, 이둘도 한한함수로 처리해야 순서가 안꼬일듯. 아마 trm은 무조건있고 thc는 있을때도있고 없을때도있고 그랬떤걸로
-    # 쉐이더말고 image로 관리하게하는 bool을 주긴해야할듯 머리카락말고는 대체로 쉐이더필요없음
-    def import_trm(self):
-        pass
+            # Create white color node
+            white_node = self.material.node_tree.nodes.new('ShaderNodeRGB')
+            white_node.outputs[0].default_value = (1, 1, 1, 1)
+            white_node.location = (self.principled_node.location.x, self.principled_node.location.y + 200)
 
-    def import_thc(self):
-        pass
+            # Connect nodes
+            if original_color_node:
+                self.material.node_tree.links.new(original_color_node.outputs['Color'], mix_color_node.inputs[1])
+            self.material.node_tree.links.new(tcl_node.outputs['Color'], mix_color_node.inputs[0])  # Factor
+            self.material.node_tree.links.new(white_node.outputs[0], mix_color_node.inputs[2])
+            self.material.node_tree.links.new(mix_color_node.outputs['Color'], self.principled_node.inputs['Base Color'])
 
-    # 기타 예약 텍스처는 우선 import를 해줄지 말지 고민해야겠다. import unlink texture 이런거..?
+            # Update original_color_node for potential _mai processing
+            original_color_node = mix_color_node
+
+        # Handle _mai texture
+        mai_node = self.import_texture('_mai', non_color=True)
+        if mai_node:
+            # Create multiply node for MAI
+            multiply_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
+            multiply_node.blend_type = 'MULTIPLY'
+            multiply_node.inputs['Fac'].default_value = 1.0
+
+            # Create white color node if not already created
+            if not tcl_node:
+                white_node = self.material.node_tree.nodes.new('ShaderNodeRGB')
+                white_node.outputs[0].default_value = (1, 1, 1, 1)
+
+            # Connect nodes
+            if original_color_node:
+                self.material.node_tree.links.new(original_color_node.outputs['Color'], multiply_node.inputs[1])
+            self.material.node_tree.links.new(mai_node.outputs['Color'], multiply_node.inputs[0])  # Factor
+            self.material.node_tree.links.new(white_node.outputs[0], multiply_node.inputs[2])
+            self.material.node_tree.links.new(multiply_node.outputs['Color'], self.principled_node.inputs['Base Color'])
+
+    def import_second_shader(self):
+        """
+        Import and setup shader-related textures (_trm and _thc).
+        Sets up complex shader mixing with translucent BSDF when _trm exists,
+        and optionally connects _thc as a factor if present.
+        """
+        trm_node = self.import_texture('_trm')
+        # 내가 알기론 thc만있는경우는 없는걸로 아는데, 아닐수도 있어서 우선import
+        thc_node = self.import_texture('_thc', non_color=True)
+
+        if trm_node:
+            nodes = self.material.node_tree.nodes
+            links = self.material.node_tree.links
+
+            # Create and setup multiply mix node
+            mix_color_node = nodes.new('ShaderNodeMixRGB')
+            mix_color_node.blend_type = 'MULTIPLY'
+            mix_color_node.inputs['Fac'].default_value = 1.0
+
+            # Create white color node
+            white_node = nodes.new('ShaderNodeRGB')
+            white_node.outputs[0].default_value = (1, 1, 1, 1)
+            white_node.location = (self.principled_node.location.x + 100, self.principled_node.location.y + 200)
+
+            # Connect _trm to mix color
+            links.new(trm_node.outputs['Color'], mix_color_node.inputs[1])  # A input
+            links.new(white_node.outputs[0], mix_color_node.inputs[2])      # B input
+
+            # Create and setup translucent BSDF
+            translucent_node = nodes.new('ShaderNodeBsdfTranslucent')
+            links.new(mix_color_node.outputs['Color'], translucent_node.inputs['Color'])
+
+            # Connect normal if exists
+            normal_map_node = None
+            for link in links:
+                if (link.to_node == self.principled_node and
+                    link.to_socket.name == 'Normal' and
+                    link.from_node.type == 'NORMAL_MAP'):
+                    normal_map_node = link.from_node
+                    break
+
+            if normal_map_node:
+                links.new(normal_map_node.outputs['Normal'], translucent_node.inputs['Normal'])
+
+            # Create and setup mix shader
+            mix_shader_node = nodes.new('ShaderNodeMixShader')
+            mix_shader_node.inputs['Fac'].default_value = 1.0
+            links.new(translucent_node.outputs['BSDF'], mix_shader_node.inputs[1])
+
+            # Create and setup add shader
+            add_shader_node = nodes.new('ShaderNodeAddShader')
+            links.new(self.principled_node.outputs['BSDF'], add_shader_node.inputs[0])
+            links.new(mix_shader_node.outputs['Shader'], add_shader_node.inputs[1])
+
+            # Connect to material output
+            output_node = None
+            for node in nodes:
+                if node.type == 'OUTPUT_MATERIAL':
+                    output_node = node
+                    break
+
+            if not output_node:
+                output_node = nodes.new('ShaderNodeOutputMaterial')
+
+            links.new(add_shader_node.outputs['Shader'], output_node.inputs['Surface'])
+
+            if thc_node:
+                links.new(thc_node.outputs['Color'], mix_shader_node.inputs['Fac'])
+
+    # TODO 기타 예약 텍스처는 우선 import를 해줄지 말지 고민해야겠다. import unlink texture 이런거..?
 
     def _is_grayscale_image(self, image):
         """흑백 이미지 여부 확인"""
@@ -137,7 +242,7 @@ class MaterialProcessor:
         if emission_node and emission_node.image:
             if self._is_grayscale_image(emission_node.image):
                 emission_node.image.colorspace_settings.name = 'Non-Color'
-            
+
             mix_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
             mix_node.blend_type = 'MULTIPLY'
             mix_node.inputs['Fac'].default_value = 1.0
