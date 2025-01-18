@@ -139,6 +139,7 @@ class MaterialProcessor:
             if not tcl_node:
                 white_node = self.material.node_tree.nodes.new('ShaderNodeRGB')
                 white_node.outputs[0].default_value = (1, 1, 1, 1)
+                white_node.location = (self.principled_node.location.x + 200, self.principled_node.location.y + 200)
 
             # Connect nodes
             if original_color_node:
@@ -216,8 +217,6 @@ class MaterialProcessor:
             if thc_node:
                 links.new(thc_node.outputs['Color'], mix_shader_node.inputs['Fac'])
 
-    # TODO 기타 예약 텍스처는 우선 import를 해줄지 말지 고민해야겠다. import unlink texture 이런거..?
-
     def _is_grayscale_image(self, image):
         """흑백 이미지 여부 확인"""
         pixels = image.pixels[:]
@@ -227,7 +226,8 @@ class MaterialProcessor:
                 return False  # 색상이 다르면 컬러
         return True  # 모두 동일하면 흑백
 
-    def handle_emission(self):
+    # TODO 흑백일경우 빛색을 요구하는 케이스가많아서 처리해야함
+    def import_emission(self):
         if not self.principled_node:
             return
 
@@ -238,6 +238,13 @@ class MaterialProcessor:
                 if link.from_node.type == 'TEX_IMAGE':
                     emission_node = link.from_node
                     break
+
+        # if none node, try import _emm
+        if not emission_node:
+            emission_node = self.import_texture('_emm')
+
+        if not emission_node:
+            emission_node = self.import_texture('_emi')
 
         if emission_node and emission_node.image:
             if self._is_grayscale_image(emission_node.image):

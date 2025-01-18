@@ -44,7 +44,7 @@ class Queueing:
             'Alpha'
         )
         material_processor.import_normal()
-        material_processor.handle_emission()
+        material_processor.import_emission()
         material_processor.import_second_alb()
         material_processor.import_second_shader()
 
