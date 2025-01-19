@@ -15,6 +15,10 @@ def menu_func_import(self, context):
     self.layout.operator(SplatoonSceneImporter.bl_idname, text="Splatoon Scene (.dae .fbx)")
 
 def register():
+    bpy.types.Scene.is_apply_second_shader = bpy.props.BoolProperty(
+        name="Apply Second Shader",
+        default=False
+    )
     bpy.types.Scene.is_scale_armature_splatoon_scene_importer = bpy.props.BoolProperty(
         name="Scale Armature",
         default=True

@@ -46,7 +46,8 @@ class Queueing:
         material_processor.import_normal()
         material_processor.import_emission()
         material_processor.import_second_alb()
-        material_processor.import_second_shader()
+        if bpy.context.scene.is_apply_second_shader:
+            material_processor.import_second_shader()
 
     def process_armature(self, obj, file_name):
         """아마추어 처리 함수"""

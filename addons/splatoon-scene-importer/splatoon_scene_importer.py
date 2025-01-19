@@ -29,6 +29,7 @@ class SplatoonSceneImporter(bpy.types.Operator):
 
     def draw(self, context):
         layout = self.layout
+        layout.prop(context.scene, 'is_apply_second_shader')
         layout.prop(context.scene, 'is_scale_armature_splatoon_scene_importer')
         layout.prop(context.scene, 'scale_value_splatoon_scene_importer')
 
