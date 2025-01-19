@@ -111,17 +111,13 @@ class MaterialProcessor:
             # Create mix node for TCL
             mix_color_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
             mix_color_node.blend_type = 'MIX'
-
-            # Create white color node
-            white_node = self.material.node_tree.nodes.new('ShaderNodeRGB')
-            white_node.outputs[0].default_value = (1, 1, 1, 1)
-            white_node.location = (self.principled_node.location.x, self.principled_node.location.y + 200)
+            mix_color_node.inputs[2].default_value = (1, 1, 1, 1)
+            mix_color_node.location = (self.principled_node.location.x, self.principled_node.location.y + 200)
 
             # Connect nodes
             if original_color_node:
                 self.material.node_tree.links.new(original_color_node.outputs['Color'], mix_color_node.inputs[1])
             self.material.node_tree.links.new(tcl_node.outputs['Color'], mix_color_node.inputs[0])  # Factor
-            self.material.node_tree.links.new(white_node.outputs[0], mix_color_node.inputs[2])
             self.material.node_tree.links.new(mix_color_node.outputs['Color'], self.principled_node.inputs['Base Color'])
 
             # Update original_color_node for potential _mai processing
@@ -134,18 +130,13 @@ class MaterialProcessor:
             multiply_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
             multiply_node.blend_type = 'MULTIPLY'
             multiply_node.inputs['Fac'].default_value = 1.0
-
-            # Create white color node if not already created
-            if not tcl_node:
-                white_node = self.material.node_tree.nodes.new('ShaderNodeRGB')
-                white_node.outputs[0].default_value = (1, 1, 1, 1)
-                white_node.location = (self.principled_node.location.x + 200, self.principled_node.location.y + 200)
+            multiply_node.inputs[2].default_value = (1, 1, 1, 1)
+            multiply_node.location = (self.principled_node.location.x + 100, self.principled_node.location.y + 200)
 
             # Connect nodes
             if original_color_node:
                 self.material.node_tree.links.new(original_color_node.outputs['Color'], multiply_node.inputs[1])
             self.material.node_tree.links.new(mai_node.outputs['Color'], multiply_node.inputs[0])  # Factor
-            self.material.node_tree.links.new(white_node.outputs[0], multiply_node.inputs[2])
             self.material.node_tree.links.new(multiply_node.outputs['Color'], self.principled_node.inputs['Base Color'])
 
     def import_second_shader(self):
@@ -166,15 +157,11 @@ class MaterialProcessor:
             mix_color_node = nodes.new('ShaderNodeMixRGB')
             mix_color_node.blend_type = 'MULTIPLY'
             mix_color_node.inputs['Fac'].default_value = 1.0
-
-            # Create white color node
-            white_node = nodes.new('ShaderNodeRGB')
-            white_node.outputs[0].default_value = (1, 1, 1, 1)
-            white_node.location = (self.principled_node.location.x + 100, self.principled_node.location.y + 200)
+            mix_color_node.inputs[2].default_value = (1, 1, 1, 1)
+            mix_color_node.location = (self.principled_node.location.x + 200, self.principled_node.location.y + 200)
 
             # Connect _trm to mix color
             links.new(trm_node.outputs['Color'], mix_color_node.inputs[1])  # A input
-            links.new(white_node.outputs[0], mix_color_node.inputs[2])      # B input
 
             # Create and setup translucent BSDF
             translucent_node = nodes.new('ShaderNodeBsdfTranslucent')
@@ -226,7 +213,6 @@ class MaterialProcessor:
                 return False  # 색상이 다르면 컬러
         return True  # 모두 동일하면 흑백
 
-    # TODO 흑백일경우 빛색을 요구하는 케이스가많아서 처리해야함
     def import_emission(self):
         if not self.principled_node:
             return
@@ -247,9 +233,6 @@ class MaterialProcessor:
             emission_node = self.import_texture('_emi')
 
         if emission_node and emission_node.image:
-            if self._is_grayscale_image(emission_node.image):
-                emission_node.image.colorspace_settings.name = 'Non-Color'
-
             mix_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
             mix_node.blend_type = 'MULTIPLY'
             mix_node.inputs['Fac'].default_value = 1.0
@@ -258,4 +241,20 @@ class MaterialProcessor:
             if base_color_input.is_linked:
                 self.material.node_tree.links.new(base_color_input.links[0].from_node.outputs['Color'], mix_node.inputs[1])
             self.material.node_tree.links.new(emission_node.outputs['Color'], mix_node.inputs[2])
-            self.material.node_tree.links.new(mix_node.outputs['Color'], self.principled_node.inputs['Emission Color'])
+
+            final_output_node = mix_node
+
+            if self._is_grayscale_image(emission_node.image):
+                emission_node.image.colorspace_settings.name = 'Non-Color'
+
+                multiply_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
+                multiply_node.blend_type = 'MULTIPLY'
+                multiply_node.inputs['Fac'].default_value = 1.0
+                multiply_node.inputs[2].default_value = (1, 1, 1, 1)
+                multiply_node.location = (self.principled_node.location.x + 300, self.principled_node.location.y + 200)
+
+                self.material.node_tree.links.new(mix_node.outputs['Color'], multiply_node.inputs[1])
+                final_output_node = multiply_node
+
+            # 최종 출력 연결
+            self.material.node_tree.links.new(final_output_node.outputs['Color'], self.principled_node.inputs['Emission Color'])
