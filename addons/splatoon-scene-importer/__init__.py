@@ -17,7 +17,16 @@ def menu_func_import(self, context):
 def register():
     bpy.types.Scene.is_apply_second_shader = bpy.props.BoolProperty(
         name="Apply Second Shader",
-        default=False
+        default=True
+    )
+    bpy.types.Scene.shader_mix_style = bpy.props.EnumProperty(
+        name="Shader Mix Style",
+        description="Choose the shader mix style",
+        items=[
+            ('COLOR', "Mix Color Style", "Pre-processes color mixing before Principled BSDF. Offers high performance and excellent compatibility with other applications through baking."),
+            ('SHADE', "Mix Shade Style", "Imports 2nd shader as a direct shader. Useful for handling light or normal-related processing. Generally requires additional customization.")
+        ],
+        default='COLOR'
     )
     bpy.types.Scene.is_scale_armature_splatoon_scene_importer = bpy.props.BoolProperty(
         name="Scale Armature",
@@ -34,6 +43,8 @@ def register():
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 
 def unregister():
+    del bpy.types.Scene.is_apply_second_shader
+    del bpy.types.Scene.shader_mix_style
     del bpy.types.Scene.is_scale_armature_splatoon_scene_importer
     del bpy.types.Scene.scale_value_splatoon_scene_importer
     bpy.utils.unregister_class(SplatoonSceneImporter)

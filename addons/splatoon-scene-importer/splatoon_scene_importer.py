@@ -30,8 +30,16 @@ class SplatoonSceneImporter(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         layout.prop(context.scene, 'is_apply_second_shader')
+
+        col = layout.column()
+        col.enabled = context.scene.is_apply_second_shader
+        col.label(text="Shader Mix Style:")
+        col.prop(context.scene, "shader_mix_style", expand=True)
+
         layout.prop(context.scene, 'is_scale_armature_splatoon_scene_importer')
-        layout.prop(context.scene, 'scale_value_splatoon_scene_importer')
+        sub_col = layout.column()
+        sub_col.enabled = context.scene.is_scale_armature_splatoon_scene_importer
+        sub_col.prop(context.scene, 'scale_value_splatoon_scene_importer')
 
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)

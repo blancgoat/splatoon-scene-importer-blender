@@ -96,11 +96,7 @@ class MaterialProcessor:
         self.material.node_tree.links.new(tex_image_node.outputs['Color'], normal_map_node.inputs['Color'])
         self.material.node_tree.links.new(normal_map_node.outputs['Normal'], self.principled_node.inputs['Normal'])
 
-    def import_second_alb(self):
-        """
-        Import and setup secondary albedo textures (_tlc and _mai).
-        First handles _tlc texture with a mix node, then _mai texture with a multiply node if present.
-        """
+    def import_tcl(self):
         # Get the current connection to Base Color
         base_color_input = self.principled_node.inputs['Base Color']
         original_color_node = base_color_input.links[0].from_node if base_color_input.is_linked else None
@@ -120,24 +116,61 @@ class MaterialProcessor:
             self.material.node_tree.links.new(tcl_node.outputs['Color'], mix_color_node.inputs[0])  # Factor
             self.material.node_tree.links.new(mix_color_node.outputs['Color'], self.principled_node.inputs['Base Color'])
 
-            # Update original_color_node for potential _mai processing
-            original_color_node = mix_color_node
+    def import_second_color(self):
+        base_color_input = self.principled_node.inputs['Base Color']
+        alb_node = base_color_input.links[0].from_node if base_color_input.is_linked else None
+        trm_node = self.import_texture('_trm')
 
-        # Handle _mai texture
+        if not (alb_node and trm_node):
+            return
+        
+        nodes = self.material.node_tree.nodes
+        links = self.material.node_tree.links
+        
+        # Create and setup screen node
+        screen_node = nodes.new('ShaderNodeMixRGB')
+        screen_node.blend_type = 'SCREEN'
+        screen_node.inputs['Fac'].default_value = 1.0
+        
+        # alb process
+        alb_multiple_node = nodes.new('ShaderNodeMixRGB')
+        alb_multiple_node.blend_type = 'MULTIPLY'
+        alb_multiple_node.inputs['Fac'].default_value = 1.0
+        alb_multiple_node.inputs[2].default_value = (1, 1, 1, 1)
+        alb_multiple_node.location = (self.principled_node.location.x + 200, self.principled_node.location.y + 300)
+        links.new(alb_node.outputs['Color'], alb_multiple_node.inputs[1])
+        links.new(alb_multiple_node.outputs['Color'], screen_node.inputs[1])
+
+        # trm process
+        trm_multiple_node = nodes.new('ShaderNodeMixRGB')
+        trm_multiple_node.blend_type = 'MULTIPLY'
+        trm_multiple_node.inputs['Fac'].default_value = 1.0
+        trm_multiple_node.inputs[2].default_value = (0, 0, 0, 1)
+        trm_multiple_node.location = (self.principled_node.location.x + 300, self.principled_node.location.y + 300)
+        links.new(trm_node.outputs['Color'], trm_multiple_node.inputs[1])
+        second_texture_node = trm_multiple_node
+
+        # mai process (optional)
         mai_node = self.import_texture('_mai', non_color=True)
         if mai_node:
-            # Create multiply node for MAI
-            multiply_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
-            multiply_node.blend_type = 'MULTIPLY'
-            multiply_node.inputs['Fac'].default_value = 1.0
-            multiply_node.inputs[2].default_value = (1, 1, 1, 1)
-            multiply_node.location = (self.principled_node.location.x + 100, self.principled_node.location.y + 200)
+            second_texture_node = nodes.new('ShaderNodeMixRGB')
+            second_texture_node.blend_type = 'MULTIPLY'
+            second_texture_node.inputs['Fac'].default_value = 1.0
+            links.new(mai_node.outputs['Color'], second_texture_node.inputs[2])
+            links.new(trm_multiple_node.outputs['Color'], second_texture_node.inputs[1])
 
-            # Connect nodes
-            if original_color_node:
-                self.material.node_tree.links.new(original_color_node.outputs['Color'], multiply_node.inputs[1])
-            self.material.node_tree.links.new(mai_node.outputs['Color'], multiply_node.inputs[0])  # Factor
-            self.material.node_tree.links.new(multiply_node.outputs['Color'], self.principled_node.inputs['Base Color'])
+        # connect trm
+        links.new(second_texture_node.outputs['Color'], screen_node.inputs[2])
+
+        # thc process (optional)
+        thc_node = self.import_texture('_thc', non_color=True)
+        if thc_node:
+            invert_node = nodes.new('ShaderNodeInvert')
+            links.new(thc_node.outputs['Color'], invert_node.inputs['Color'])
+            links.new(invert_node.outputs['Color'], screen_node.inputs[0])
+
+        # final connect base color
+        links.new(screen_node.outputs['Color'], base_color_input)
 
     def import_second_shader(self):
         """
@@ -146,7 +179,6 @@ class MaterialProcessor:
         and optionally connects _thc as a factor if present.
         """
         trm_node = self.import_texture('_trm')
-        # 내가 알기론 thc만있는경우는 없는걸로 아는데, 아닐수도 있어서 우선import
         thc_node = self.import_texture('_thc', non_color=True)
 
         if trm_node:
