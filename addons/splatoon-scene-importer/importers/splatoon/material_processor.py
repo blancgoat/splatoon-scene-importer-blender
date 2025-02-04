@@ -106,6 +106,7 @@ class MaterialProcessor:
         if tcl_node:
             # Create mix node for TCL
             mix_color_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
+            mix_color_node.label = 'Tcl Mix'
             mix_color_node.blend_type = 'MIX'
             mix_color_node.inputs[2].default_value = (1, 1, 1, 1)
             mix_color_node.location = (self.principled_node.location.x, self.principled_node.location.y + 200)
@@ -134,6 +135,7 @@ class MaterialProcessor:
         
         # alb process
         alb_multiple_node = nodes.new('ShaderNodeMixRGB')
+        alb_multiple_node.label = 'Alb Multiply'
         alb_multiple_node.blend_type = 'MULTIPLY'
         alb_multiple_node.inputs['Fac'].default_value = 1.0
         alb_multiple_node.inputs[2].default_value = (1, 1, 1, 1)
@@ -143,6 +145,7 @@ class MaterialProcessor:
 
         # trm process
         trm_multiple_node = nodes.new('ShaderNodeMixRGB')
+        trm_multiple_node.label = 'Trm Multiply'
         trm_multiple_node.blend_type = 'MULTIPLY'
         trm_multiple_node.inputs['Fac'].default_value = 1.0
         trm_multiple_node.inputs[2].default_value = (0, 0, 0, 1)
@@ -187,6 +190,7 @@ class MaterialProcessor:
 
             # Create and setup multiply mix node
             mix_color_node = nodes.new('ShaderNodeMixRGB')
+            mix_color_node.label = 'Trm Multiply'
             mix_color_node.blend_type = 'MULTIPLY'
             mix_color_node.inputs['Fac'].default_value = 1.0
             mix_color_node.inputs[2].default_value = (1, 1, 1, 1)
@@ -280,6 +284,7 @@ class MaterialProcessor:
                 emission_node.image.colorspace_settings.name = 'Non-Color'
 
                 multiply_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
+                multiply_node.label = 'Emm Multiply'
                 multiply_node.blend_type = 'MULTIPLY'
                 multiply_node.inputs['Fac'].default_value = 1.0
                 multiply_node.inputs[2].default_value = (1, 1, 1, 1)
