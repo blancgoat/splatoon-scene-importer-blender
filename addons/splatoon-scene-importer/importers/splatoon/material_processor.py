@@ -313,9 +313,8 @@ class MaterialProcessor:
             mix_node.location = (emission_node.location.x + 300, emission_node.location.y)
             mix_node.hide = True
 
-            base_color_input = self.principled_node.inputs['Base Color']
-            if base_color_input.is_linked:
-                self.material.node_tree.links.new(base_color_input.links[0].from_node.outputs['Color'], mix_node.inputs[1])
+            if self.base_color_node:
+                self.material.node_tree.links.new(self.base_color_node.outputs['Color'], mix_node.inputs[1])
             self.material.node_tree.links.new(emission_node.outputs['Color'], mix_node.inputs[2])
 
             final_output_node = mix_node
