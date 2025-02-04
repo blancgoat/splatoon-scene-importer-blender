@@ -151,7 +151,16 @@ class MaterialProcessor:
         trm_multiple_node.inputs[2].default_value = (0, 0, 0, 1)
         trm_multiple_node.location = (self.principled_node.location.x + 300, self.principled_node.location.y + 300)
         links.new(trm_node.outputs['Color'], trm_multiple_node.inputs[1])
-        second_texture_node = trm_multiple_node
+
+        trm_second_screen_node = nodes.new('ShaderNodeMixRGB')
+        trm_second_screen_node.label = 'Trm Second Screen'
+        trm_second_screen_node.blend_type = 'SCREEN'
+        trm_second_screen_node.inputs['Fac'].default_value = 1.0
+        trm_second_screen_node.inputs[2].default_value = (0, 0, 0, 1)
+        links.new(trm_multiple_node.outputs['Color'], trm_second_screen_node.inputs[1])
+        trm_second_screen_node.location = (trm_multiple_node.location.x, trm_multiple_node.location.y + 200)
+
+        second_texture_node = trm_second_screen_node
 
         # mai process (optional)
         mai_node = self.import_texture('_mai', non_color=True)
