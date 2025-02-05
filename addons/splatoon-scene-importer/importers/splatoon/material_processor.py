@@ -7,19 +7,48 @@ class MaterialProcessor:
         self.material = material
         self.file_path = file_path
         self.base_name = self._find_base_texture() or self._find_base_from_material()
-        self.principled_node = self._find_principled_node()
+        self.principled_node = self._init_principled_node()
         self.base_color_node = self._find_base_color_node()
         self.base_x_position = self.principled_node.location.x - 900
         if self.base_color_node:
             self.base_color_node.location = (self.base_x_position, self.principled_node.location.y)
             self.base_color_node.hide = True
 
-    def _find_principled_node(self):
-        """Find the Principled BSDF node in the material."""
-        for node in self.material.node_tree.nodes:
+    def _init_principled_node(self):
+        nodes = self.material.node_tree.nodes
+        links = self.material.node_tree.links
+
+        # 기존 Principled BSDF 찾기
+        principled = None
+        for node in nodes:
             if node.type == 'BSDF_PRINCIPLED':
-                return node
-        return None
+                principled = node
+                break
+
+        # 연결 정보 저장
+        input_links = {link.to_socket.name: link.from_node.outputs[link.from_socket.name]
+                       for link in links if link.to_node == principled}
+        output_links = {link.from_socket.name: link.to_node.inputs[link.to_socket.name]
+                        for link in links if link.from_node == principled}
+        principled_location = principled.location
+
+        # 기존 Principled BSDF 삭제
+        nodes.remove(principled)
+
+        # 새로운 Principled BSDF 추가
+        new_principled = nodes.new(type='ShaderNodeBsdfPrincipled')
+        new_principled.location = principled_location
+
+        # 기존 링크 복원
+        for input_name, from_output in input_links.items():
+            if input_name in new_principled.inputs:
+                links.new(from_output, new_principled.inputs[input_name])
+
+        for output_name, to_input in output_links.items():
+            if output_name in new_principled.outputs:
+                links.new(new_principled.outputs[output_name], to_input)
+
+        return new_principled
 
     def _find_base_color_node(self):
         base_color_input = self.principled_node.inputs['Base Color']
