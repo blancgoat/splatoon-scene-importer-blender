@@ -33,28 +33,22 @@ class Queueing:
 
         # link textures
         material_processor.link_texture_principled_node(
-            material_processor.import_texture(
-                '_mtl',
-                non_color=True,
-                location_y = material_processor.principled_node.location.y - 85
-            ),
-            'Metallic'
+            'Metallic',
+            '_mtl',
+            non_color = True,
+            location_y = material_processor.principled_node.location.y - 85
         )
         material_processor.link_texture_principled_node(
-            material_processor.import_texture(
-                '_rgh',
-                non_color=True,
-                location_y = material_processor.principled_node.location.y - 99
-            ),
-            'Roughness'
+            'Roughness',
+            '_rgh',
+            non_color = True,
+            location_y = material_processor.principled_node.location.y - 99
         )
         material_processor.link_texture_principled_node(
-            material_processor.import_texture(
-                '_opa',
-                non_color=True,
-                location_y = material_processor.principled_node.location.y - 130
-            ),
-            'Alpha'
+            'Alpha',
+            '_opa',
+            non_color = True,
+            location_y = material_processor.principled_node.location.y - 130
         )
         material_processor.import_normal()
         material_processor.import_emission()

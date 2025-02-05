@@ -20,7 +20,7 @@ class MaterialProcessor:
             if node.type == 'BSDF_PRINCIPLED':
                 return node
         return None
-    
+
     def _find_base_color_node(self):
         base_color_input = self.principled_node.inputs['Base Color']
         if base_color_input.is_linked:
@@ -94,10 +94,20 @@ class MaterialProcessor:
 
         return tex_image_node
 
-    def link_texture_principled_node(self, tex_image_node, input_name):
-        if not tex_image_node:
+    def link_texture_principled_node(self, input_name, suffix, non_color=False, location_x=None, location_y=0):
+        if not location_x:
+            location_x = self.base_x_position
+
+        # 블랜더가 자동으로 import한것은 신뢰한다
+        if self.principled_node.inputs[input_name].is_linked:
+            already_node = self.principled_node.inputs[input_name].links[0].from_node
+            already_node.location = (location_x, location_y)
+            already_node.hide = True
             return
-        self.material.node_tree.links.new(tex_image_node.outputs['Color'], self.principled_node.inputs[input_name])
+
+        tex_image_node = self.import_texture(suffix, non_color, location_x, location_y)
+        if tex_image_node:
+            self.material.node_tree.links.new(tex_image_node.outputs['Color'], self.principled_node.inputs[input_name])
 
     def import_normal(self):
         tex_image_node = self.import_texture('_nrm', non_color=True)
@@ -112,7 +122,7 @@ class MaterialProcessor:
             normal_map_node = self.material.node_tree.nodes.new('ShaderNodeNormalMap')
             self.material.node_tree.links.new(normal_map_node.outputs['Normal'], self.principled_node.inputs['Normal'])
         normal_map_node.hide = True
-        
+
         tex_image_node.location = (self.base_x_position, self.principled_node.location.y - 180)
         normal_map_node.location = (tex_image_node.location.x + 300, tex_image_node.location.y)
 
@@ -146,17 +156,17 @@ class MaterialProcessor:
 
         if not (alb_node and trm_node):
             return
-        
+
         nodes = self.material.node_tree.nodes
         links = self.material.node_tree.links
-        
+
         # Create and setup screen node
         screen_node = nodes.new('ShaderNodeMixRGB')
         screen_node.blend_type = 'SCREEN'
         screen_node.inputs['Fac'].default_value = 1.0
         screen_node.hide = True
         screen_node.location = (self.principled_node.location.x - 200, self.principled_node.location.y)
-        
+
         # alb process
         alb_multiple_node = nodes.new('ShaderNodeMixRGB')
         alb_multiple_node.label = 'Alb Multiply'
