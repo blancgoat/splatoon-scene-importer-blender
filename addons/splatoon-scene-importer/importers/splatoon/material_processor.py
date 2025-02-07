@@ -238,7 +238,11 @@ class MaterialProcessor:
         # thc process
         thc_node = self.import_texture('_thc', non_color=True, location_y=self.principled_node.location.y + 600)
         if thc_node:
-            links.new(thc_node.outputs['Color'], screen_node.inputs[0])
+            invert_node = nodes.new('ShaderNodeInvert')
+            invert_node.hide = True
+            invert_node.location = (thc_node.location.x + 300, thc_node.location.y)
+            links.new(thc_node.outputs['Color'], invert_node.inputs['Color'])
+            links.new(invert_node.outputs['Color'], screen_node.inputs[0])
 
         # final connect base color
         links.new(screen_node.outputs['Color'], self.principled_node.inputs['Base Color'])
@@ -315,7 +319,7 @@ class MaterialProcessor:
                 thc_mix_shader_node.hide = True
                 thc_mix_shader_node.location = (final_shade.location.x + 200, final_shade.location.y)
                 links.new(thc_node.outputs['Color'], thc_mix_shader_node.inputs['Fac'])
-                links.new(final_shade.outputs['Shader'], thc_mix_shader_node.inputs[2])
+                links.new(final_shade.outputs['Shader'], thc_mix_shader_node.inputs[1])
                 final_shade = thc_mix_shader_node
 
             # mai process
