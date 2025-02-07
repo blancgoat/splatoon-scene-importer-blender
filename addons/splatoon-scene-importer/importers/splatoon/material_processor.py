@@ -167,25 +167,23 @@ class MaterialProcessor:
         self.material.node_tree.links.new(tex_image_node.outputs['Color'], normal_map_node.inputs['Color'])
 
     def import_tcl(self):
-        # Get the current connection to Base Color
-        base_color_input = self.principled_node.inputs['Base Color']
-        original_color_node = base_color_input.links[0].from_node if base_color_input.is_linked else None
-
-        # Handle _tcl texture
         tcl_node = self.import_texture('_tcl', non_color=True, location_y=self.principled_node.location.y + 100)
-        if tcl_node:
-            # Create mix node for TCL
-            mix_color_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
-            mix_color_node.label = 'Tcl Mix'
-            mix_color_node.blend_type = 'MIX'
-            mix_color_node.inputs[2].default_value = (1, 1, 1, 1)
-            mix_color_node.location = (tcl_node.location.x + 300, tcl_node.location.y)
+        if not self.base_color_node or not tcl_node:
+            return
 
-            # Connect nodes
-            if original_color_node:
-                self.material.node_tree.links.new(original_color_node.outputs['Color'], mix_color_node.inputs[1])
-            self.material.node_tree.links.new(tcl_node.outputs['Color'], mix_color_node.inputs[0])  # Factor
-            self.material.node_tree.links.new(mix_color_node.outputs['Color'], self.principled_node.inputs['Base Color'])
+        # Create mix node for TCL
+        mix_color_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
+        mix_color_node.label = 'Tcl Mix'
+        mix_color_node.blend_type = 'MIX'
+        mix_color_node.inputs[2].default_value = (1, 1, 1, 1)
+        mix_color_node.location = (tcl_node.location.x + 500, tcl_node.location.y)
+
+        # Connect nodes
+        self.material.node_tree.links.new(self.base_color_node.outputs['Color'], mix_color_node.inputs[1])
+        self.material.node_tree.links.new(tcl_node.outputs['Color'], mix_color_node.inputs['Fac'])
+        self.material.node_tree.links.new(mix_color_node.outputs['Color'], self.principled_node.inputs['Base Color'])
+
+        self.base_color_node = mix_color_node
 
     def import_second_color(self):
         trm_node = self.import_texture('_trm', location_y=self.principled_node.location.y + 300)
@@ -252,8 +250,6 @@ class MaterialProcessor:
         and optionally connects _thc as a factor if present.
         """
         trm_node = self.import_texture('_trm', location_y=self.principled_node.location.y + 300)
-        thc_node = self.import_texture('_thc', non_color=True, location_y=self.principled_node.location.y + 600)
-
         if trm_node:
             nodes = self.material.node_tree.nodes
             links = self.material.node_tree.links
@@ -310,16 +306,27 @@ class MaterialProcessor:
             knob_mix_shader_node.inputs['Fac'].default_value = 0.5 # default to 100%
             links.new(trm_add_shader_node.outputs['Shader'], knob_mix_shader_node.inputs[2])
 
-            final_shade = None
+            final_shade = knob_mix_shader_node
+
+            # thc process
+            thc_node = self.import_texture('_thc', non_color=True, location_y=self.principled_node.location.y + 600)
             if thc_node:
                 thc_mix_shader_node = nodes.new('ShaderNodeMixShader')
                 thc_mix_shader_node.hide = True
-                thc_mix_shader_node.location = (knob_mix_shader_node.location.x + 200, knob_mix_shader_node.location.y)
+                thc_mix_shader_node.location = (final_shade.location.x + 200, final_shade.location.y)
                 links.new(thc_node.outputs['Color'], thc_mix_shader_node.inputs['Fac'])
-                links.new(knob_mix_shader_node.outputs['Shader'], thc_mix_shader_node.inputs[1])
+                links.new(final_shade.outputs['Shader'], thc_mix_shader_node.inputs[2])
                 final_shade = thc_mix_shader_node
-            else:
-                final_shade = knob_mix_shader_node
+
+            # mai process
+            mai_node = self.import_texture('_mai', non_color=True, location_y=self.principled_node.location.y + 800)
+            if mai_node:
+                mai_mix_shader_node = nodes.new('ShaderNodeMixShader')
+                mai_mix_shader_node.hide = True
+                mai_mix_shader_node.location = (final_shade.location.x + 200, final_shade.location.y)
+                links.new(mai_node.outputs['Color'], mai_mix_shader_node.inputs['Fac'])
+                links.new(final_shade.outputs['Shader'], mai_mix_shader_node.inputs[2])
+                final_shade = mai_mix_shader_node
 
             # Create Final add shader
             add_shader_node = nodes.new('ShaderNodeAddShader')
