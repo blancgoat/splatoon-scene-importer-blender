@@ -60,7 +60,7 @@ class MaterialProcessor:
         base_color_node.hide = True
 
         alb_multiple_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
-        alb_multiple_node.location = (base_color_node.location.x + 300, base_color_node.location.y)
+        alb_multiple_node.location = (base_color_node.location.x + 300, base_color_node.location.y + 100)
         alb_multiple_node.label = 'Alb Multiply'
         alb_multiple_node.blend_type = 'MULTIPLY'
         alb_multiple_node.inputs['Fac'].default_value = 1.0
@@ -164,6 +164,24 @@ class MaterialProcessor:
         tex_image_node = self.import_texture(suffix, non_color, location_x, location_y)
         if tex_image_node:
             self.material.node_tree.links.new(tex_image_node.outputs['Color'], self.principled_node.inputs[input_name])
+
+    def import_alpha(self):
+        if self.principled_node.inputs['Alpha'].is_linked:
+            imported_alpha_node = self.principled_node.inputs['Alpha'].links[0].from_node
+            self.material.node_tree.links.remove(self.principled_node.inputs['Alpha'].links[0])
+            self.material.node_tree.nodes.remove(imported_alpha_node)
+
+        alpha_node = self.import_texture('_opa', non_color=True)
+
+        if alpha_node:
+            alpha_node.hide = True
+            alpha_node.location = (self.base_x_position, self.principled_node.location.y - 135)
+            math_node = self.material.node_tree.nodes.new('ShaderNodeMath')
+            math_node.hide = True
+            math_node.location = (alpha_node.location.x + 700, alpha_node.location.y)
+            math_node.operation = 'GREATER_THAN'
+            self.material.node_tree.links.new(alpha_node.outputs['Color'], math_node.inputs['Value'])
+            self.material.node_tree.links.new(math_node.outputs['Value'], self.principled_node.inputs['Alpha'])
 
     def import_normal(self):
         tex_image_node = self.import_texture('_nrm', non_color=True)

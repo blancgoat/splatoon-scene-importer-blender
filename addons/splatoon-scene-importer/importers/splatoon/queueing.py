@@ -24,13 +24,6 @@ class Queueing:
         # metallic to 0
         material_processor.principled_node.inputs['Metallic'].default_value = 0
 
-        # remove alpha
-        for link in material_processor.material.node_tree.links:
-            if (link.to_node == material_processor.principled_node and
-                link.to_socket.name == 'Alpha'):
-                material_processor.material.node_tree.nodes.remove(link.from_node)
-                break
-
         # link textures
         material_processor.link_texture_principled_node(
             'Metallic',
@@ -44,12 +37,8 @@ class Queueing:
             non_color = True,
             location_y = material_processor.principled_node.location.y - 99
         )
-        material_processor.link_texture_principled_node(
-            'Alpha',
-            '_opa',
-            non_color = True,
-            location_y = material_processor.principled_node.location.y - 130
-        )
+
+        material_processor.import_alpha()
         material_processor.import_normal()
         material_processor.import_emission()
         if bpy.context.scene.is_apply_second_shader:
