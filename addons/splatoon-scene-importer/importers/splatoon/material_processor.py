@@ -257,64 +257,90 @@ class MaterialProcessor:
         Sets up complex shader mixing with translucent BSDF when _trm exists,
         and optionally connects _thc as a factor if present.
         """
-        trm_node = self.import_texture('_trm')
-        thc_node = self.import_texture('_thc', non_color=True)
+        trm_node = self.import_texture('_trm', location_y=self.principled_node.location.y + 300)
+        thc_node = self.import_texture('_thc', non_color=True, location_y=self.principled_node.location.y + 600)
 
         if trm_node:
             nodes = self.material.node_tree.nodes
             links = self.material.node_tree.links
 
             # Create and setup multiply mix node
-            mix_color_node = nodes.new('ShaderNodeMixRGB')
-            mix_color_node.label = 'Trm Multiply'
-            mix_color_node.blend_type = 'MULTIPLY'
-            mix_color_node.inputs['Fac'].default_value = 1.0
-            mix_color_node.inputs[2].default_value = (1, 1, 1, 1)
-            mix_color_node.location = (self.principled_node.location.x + 200, self.principled_node.location.y + 200)
+            multiple_color_node = nodes.new('ShaderNodeMixRGB')
+            multiple_color_node.label = 'Trm Multiply'
+            multiple_color_node.blend_type = 'MULTIPLY'
+            multiple_color_node.inputs['Fac'].default_value = 1.0
+            multiple_color_node.inputs[2].default_value = (1, 1, 1, 1)
+            multiple_color_node.location = (trm_node.location.x + 300, trm_node.location.y)
 
             # Connect _trm to mix color
-            links.new(trm_node.outputs['Color'], mix_color_node.inputs[1])  # A input
+            links.new(trm_node.outputs['Color'], multiple_color_node.inputs[1])  # A input
 
-            # Create and setup translucent BSDF
-            translucent_node = nodes.new('ShaderNodeBsdfTranslucent')
-            links.new(mix_color_node.outputs['Color'], translucent_node.inputs['Color'])
+            # Create and setup toBSDF
+            to_shade_node = nodes.new('ShaderNodeBsdfDiffuse')
+            to_shade_node.location = (multiple_color_node.location.x + 200, multiple_color_node.location.y)
+            to_shade_node.hide = True
+            links.new(multiple_color_node.outputs['Color'], to_shade_node.inputs['Color'])
 
-            # Connect normal if exists
-            normal_map_node = None
-            for link in links:
-                if (link.to_node == self.principled_node and
-                    link.to_socket.name == 'Normal' and
-                    link.from_node.type == 'NORMAL_MAP'):
-                    normal_map_node = link.from_node
-                    break
+            # Create 2nd trm RGB node
+            second_trm_rgb_node = nodes.new('ShaderNodeRGB')
+            second_trm_rgb_node.outputs[0].default_value = (0, 0, 0, 1)
+            second_trm_rgb_node.label = 'Trm Second Color'
+            second_trm_rgb_node.location = (multiple_color_node.location.x, multiple_color_node.location.y + 200)
 
-            if normal_map_node:
-                links.new(normal_map_node.outputs['Normal'], translucent_node.inputs['Normal'])
+            # Create and set 2nd toBSDF
+            second_to_shade_node = nodes.new('ShaderNodeBsdfDiffuse')
+            second_to_shade_node.location = (to_shade_node.location.x, to_shade_node.location.y + 200)
+            second_to_shade_node.hide = True
+            links.new(second_trm_rgb_node.outputs['Color'], second_to_shade_node.inputs['Color'])
 
-            # Create and setup mix shader
-            mix_shader_node = nodes.new('ShaderNodeMixShader')
-            mix_shader_node.inputs['Fac'].default_value = 1.0
-            links.new(translucent_node.outputs['BSDF'], mix_shader_node.inputs[1])
+            # Connect normal to toBSDF
+            if self.principled_node.inputs['Normal'].is_linked:
+                links.new(self.principled_node.inputs['Normal'].links[0].from_node.outputs[0], to_shade_node.inputs['Normal'])
+                links.new(self.principled_node.inputs['Normal'].links[0].from_node.outputs[0], second_to_shade_node.inputs['Normal'])
 
-            # Create and setup add shader
+            # Connect rgh to toBSDF
+            if self.principled_node.inputs['Roughness'].is_linked:
+                links.new(self.principled_node.inputs['Roughness'].links[0].from_node.outputs[0], to_shade_node.inputs['Roughness'])
+                links.new(self.principled_node.inputs['Roughness'].links[0].from_node.outputs[0], second_to_shade_node.inputs['Roughness'])
+
+            # 200% mix shade
+            trm_add_shader_node = nodes.new('ShaderNodeAddShader')
+            trm_add_shader_node.hide = True
+            trm_add_shader_node.location = (to_shade_node.location.x + 200, to_shade_node.location.y)
+            links.new(to_shade_node.outputs['BSDF'], trm_add_shader_node.inputs[0])
+            links.new(second_to_shade_node.outputs['BSDF'], trm_add_shader_node.inputs[1])
+
+            # knob shade
+            knob_mix_shader_node = nodes.new('ShaderNodeMixShader')
+            knob_mix_shader_node.location = (trm_add_shader_node.location.x + 200, trm_add_shader_node.location.y)
+            knob_mix_shader_node.inputs['Fac'].default_value = 0.5 # default to 100%
+            links.new(trm_add_shader_node.outputs['Shader'], knob_mix_shader_node.inputs[2])
+
+            final_shade = None
+            if thc_node:
+                thc_mix_shader_node = nodes.new('ShaderNodeMixShader')
+                thc_mix_shader_node.hide = True
+                thc_mix_shader_node.location = (knob_mix_shader_node.location.x + 200, knob_mix_shader_node.location.y)
+                links.new(thc_node.outputs['Color'], thc_mix_shader_node.inputs['Fac'])
+                links.new(knob_mix_shader_node.outputs['Shader'], thc_mix_shader_node.inputs[1])
+                final_shade = thc_mix_shader_node
+            else:
+                final_shade = knob_mix_shader_node
+
+            # Create Final add shader
             add_shader_node = nodes.new('ShaderNodeAddShader')
-            links.new(self.principled_node.outputs['BSDF'], add_shader_node.inputs[0])
-            links.new(mix_shader_node.outputs['Shader'], add_shader_node.inputs[1])
+            add_shader_node.location = (self.principled_node.location.x + 400, self.principled_node.location.y)
+            links.new(final_shade.outputs['Shader'], add_shader_node.inputs[0])
+            links.new(self.principled_node.outputs['BSDF'], add_shader_node.inputs[1])
 
             # Connect to material output
-            output_node = None
-            for node in nodes:
-                if node.type == 'OUTPUT_MATERIAL':
-                    output_node = node
-                    break
-
+            output_node = self.principled_node.outputs['BSDF'].links[0].to_node
             if not output_node:
                 output_node = nodes.new('ShaderNodeOutputMaterial')
 
-            links.new(add_shader_node.outputs['Shader'], output_node.inputs['Surface'])
+            output_node.location = (add_shader_node.location.x + 200, add_shader_node.location.y)
 
-            if thc_node:
-                links.new(thc_node.outputs['Color'], mix_shader_node.inputs['Fac'])
+            links.new(add_shader_node.outputs['Shader'], output_node.inputs['Surface'])
 
     def _is_grayscale_image(self, image):
         """흑백 이미지 여부 확인"""
