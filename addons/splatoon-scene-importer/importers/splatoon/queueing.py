@@ -21,16 +21,15 @@ class Queueing:
         """머티리얼 처리 함수"""
         material_processor = MaterialProcessor(matarial, file_path)
 
-        # metallic to 0
         material_processor.principled_node.inputs['Metallic'].default_value = 0
-
-        # link textures
         material_processor.link_texture_principled_node(
             'Metallic',
             '_mtl',
             non_color = True,
             location_y = material_processor.principled_node.location.y - 85
         )
+
+        material_processor.principled_node.inputs['Roughness'].default_value = 0
         material_processor.link_texture_principled_node(
             'Roughness',
             '_rgh',
