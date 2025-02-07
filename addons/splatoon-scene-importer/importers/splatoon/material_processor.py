@@ -326,25 +326,16 @@ class MaterialProcessor:
         return True  # 모두 동일하면 흑백
 
     def import_emission(self):
-        if not self.principled_node:
-            return
-
-        # Emission 노드의 Color 출력이 Principled BSDF의 Emission 입력에 연결되어 있는지 확인
         emission_node = None
-        for link in self.material.node_tree.links:
-            if (link.to_node == self.principled_node and link.to_socket.name == 'Emission Color'):
-                if link.from_node.type == 'TEX_IMAGE':
-                    emission_node = link.from_node
-                    break
-
-        # if none node, try import _emm
-        if not emission_node:
+        if self.principled_node.inputs['Emission Color'].is_linked:
+            emission_node = self.principled_node.inputs['Emission Color'].links[0].from_node
+        else:
             emission_node = self.import_texture('_emm')
-
-        if not emission_node:
-            emission_node = self.import_texture('_emi')
+            if not emission_node:
+                emission_node = self.import_texture('_emi')
 
         if emission_node and emission_node.image:
+            emission_node.hide = True
             emission_node.location = (self.base_x_position, self.principled_node.location.y - 250)
             mix_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
             mix_node.blend_type = 'MULTIPLY'
@@ -373,3 +364,4 @@ class MaterialProcessor:
 
             # 최종 출력 연결
             self.material.node_tree.links.new(final_output_node.outputs['Color'], self.principled_node.inputs['Emission Color'])
+            self.principled_node.inputs['Emission Strength'].default_value = 1.0
