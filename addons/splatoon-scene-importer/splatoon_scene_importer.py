@@ -106,6 +106,24 @@ class SplatoonSceneImporterDragDrop(bpy.types.Operator):
         maxlen=255,
     )
 
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(context.scene, 'is_apply_second_shader')
+
+        col = layout.column()
+        col.enabled = context.scene.is_apply_second_shader
+        col.label(text="Shader Mix Style:")
+        col.prop(context.scene, "shader_mix_style", expand=True)
+
+        layout.prop(context.scene, 'is_scale_armature_splatoon_scene_importer')
+        sub_col = layout.column()
+        sub_col.enabled = context.scene.is_scale_armature_splatoon_scene_importer
+        sub_col.prop(context.scene, 'scale_value_splatoon_scene_importer')
+
+    def invoke(self, context, event):
+        # 드래그 앤드롭으로 파일을 가져온 후, 레이아웃을 표시
+        return context.window_manager.invoke_props_dialog(self)
+
     def execute(self, context):
         self.queue = Queueing(self.files, self.directory)
 
