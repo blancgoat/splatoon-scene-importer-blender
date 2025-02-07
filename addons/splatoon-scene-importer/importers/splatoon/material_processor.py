@@ -9,6 +9,8 @@ class MaterialProcessor:
         self.base_name = self._find_base_texture() or self._find_base_from_material()
         self.principled_node = self._init_principled_node()
         self.base_x_position = self.principled_node.location.x - 900
+
+        # 2nd texture의 영향을 받지않은 node보관용 emission에서 사용한다
         self.base_color_node = self._init_base_color_node()
 
     def _init_principled_node(self):
@@ -48,6 +50,8 @@ class MaterialProcessor:
         return new_principled
 
     def _init_base_color_node(self):
+        tcl_node = self.import_texture('_tcl', non_color=True, location_y=self.principled_node.location.y + 100)
+
         if not self.principled_node.inputs['Base Color'].is_linked:
             return None
 
@@ -62,9 +66,23 @@ class MaterialProcessor:
         alb_multiple_node.inputs['Fac'].default_value = 1.0
         alb_multiple_node.inputs[2].default_value = (1, 1, 1, 1)
         self.material.node_tree.links.new(base_color_node.outputs['Color'], alb_multiple_node.inputs[1])
-        self.material.node_tree.links.new(alb_multiple_node.outputs['Color'], self.principled_node.inputs['Base Color'])
 
-        return alb_multiple_node
+        final_base_node = alb_multiple_node
+        if tcl_node:
+            mix_color_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
+            mix_color_node.label = 'Tcl Mix'
+            mix_color_node.blend_type = 'MIX'
+            mix_color_node.inputs[2].default_value = (1, 1, 1, 1)
+            mix_color_node.location = (tcl_node.location.x + 500, tcl_node.location.y)
+
+            # Connect nodes
+            self.material.node_tree.links.new(final_base_node.outputs['Color'], mix_color_node.inputs[1])
+            self.material.node_tree.links.new(tcl_node.outputs['Color'], mix_color_node.inputs['Fac'])
+            final_base_node = mix_color_node
+
+        self.material.node_tree.links.new(final_base_node.outputs['Color'], self.principled_node.inputs['Base Color'])
+
+        return final_base_node
 
     def _find_base_texture(self):
         # Define base suffixes
@@ -166,30 +184,13 @@ class MaterialProcessor:
 
         self.material.node_tree.links.new(tex_image_node.outputs['Color'], normal_map_node.inputs['Color'])
 
-    def import_tcl(self):
-        tcl_node = self.import_texture('_tcl', non_color=True, location_y=self.principled_node.location.y + 100)
-        if not self.base_color_node or not tcl_node:
-            return
-
-        # Create mix node for TCL
-        mix_color_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
-        mix_color_node.label = 'Tcl Mix'
-        mix_color_node.blend_type = 'MIX'
-        mix_color_node.inputs[2].default_value = (1, 1, 1, 1)
-        mix_color_node.location = (tcl_node.location.x + 500, tcl_node.location.y)
-
-        # Connect nodes
-        self.material.node_tree.links.new(self.base_color_node.outputs['Color'], mix_color_node.inputs[1])
-        self.material.node_tree.links.new(tcl_node.outputs['Color'], mix_color_node.inputs['Fac'])
-        self.material.node_tree.links.new(mix_color_node.outputs['Color'], self.principled_node.inputs['Base Color'])
-
-        self.base_color_node = mix_color_node
-
     def import_second_color(self):
         trm_node = self.import_texture('_trm', location_y=self.principled_node.location.y + 300)
 
-        if not (self.base_color_node and trm_node):
+        if not self.principled_node.inputs['Base Color'].is_linked or not trm_node:
             return
+
+        base_color_node = self.principled_node.inputs['Base Color'].links[0].from_node
 
         nodes = self.material.node_tree.nodes
         links = self.material.node_tree.links
@@ -200,7 +201,7 @@ class MaterialProcessor:
         screen_node.inputs['Fac'].default_value = 1.0
         screen_node.hide = True
         screen_node.location = (self.principled_node.location.x - 200, self.principled_node.location.y)
-        links.new(self.base_color_node.outputs['Color'], screen_node.inputs[1])
+        links.new(base_color_node.outputs['Color'], screen_node.inputs[1])
 
         # trm process
         trm_multiple_node = nodes.new('ShaderNodeMixRGB')

@@ -52,7 +52,6 @@ class Queueing:
         )
         material_processor.import_normal()
         material_processor.import_emission()
-        material_processor.import_tcl()
         if bpy.context.scene.is_apply_second_shader:
             if bpy.context.scene.shader_mix_style == 'COLOR':
                 material_processor.import_second_color()
