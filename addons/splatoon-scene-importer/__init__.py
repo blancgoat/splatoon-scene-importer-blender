@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Splatoon Scene Importer",
     "author": "blancgoat",
-    "version": (1, 4),
+    "version": (1, 5),
     "blender": (4, 0, 0),
     "location": "File > Import > Splatoon Scene (.dae .fbx)",
     "description": "Importer for Splatoon models with automatic texture linking.",
