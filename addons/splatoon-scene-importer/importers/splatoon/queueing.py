@@ -80,6 +80,7 @@ class Queueing:
                         materials.add(slot.material)
 
         for material in materials:
+            material.blend_method = 'HASHED'
             self.process_material(material, file_path)
 
     def process_next_file(self):
