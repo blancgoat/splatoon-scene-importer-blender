@@ -226,7 +226,7 @@ class MaterialProcessor:
         trm_multiple_node.label = 'Trm Multiply'
         trm_multiple_node.blend_type = 'MULTIPLY'
         trm_multiple_node.inputs['Fac'].default_value = 1.0
-        trm_multiple_node.inputs[2].default_value = (1, 1, 1, 1)
+        trm_multiple_node.inputs[2].default_value = (0, 0, 0, 1)
         trm_multiple_node.location = (trm_node.location.x + 300, trm_node.location.y)
         links.new(trm_node.outputs['Color'], trm_multiple_node.inputs[1])
 
@@ -282,7 +282,7 @@ class MaterialProcessor:
             multiple_color_node.label = 'Trm Multiply'
             multiple_color_node.blend_type = 'MULTIPLY'
             multiple_color_node.inputs['Fac'].default_value = 1.0
-            multiple_color_node.inputs[2].default_value = (1, 1, 1, 1)
+            multiple_color_node.inputs[2].default_value = (0, 0, 0, 1)
             multiple_color_node.location = (trm_node.location.x + 300, trm_node.location.y)
 
             # Connect _trm to mix color
