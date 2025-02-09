@@ -50,6 +50,7 @@ class MaterialProcessor:
         return new_principled
 
     def _init_base_color_node(self):
+        ao_node = self.import_texture('_ao', non_color=True, location_y=self.principled_node.location.y + 50)
         tcl_node = self.import_texture('_tcl', non_color=True, location_y=self.principled_node.location.y + 100)
 
         if not self.principled_node.inputs['Base Color'].is_linked:
@@ -66,16 +67,25 @@ class MaterialProcessor:
         alb_multiple_node.inputs['Fac'].default_value = 1.0
         alb_multiple_node.inputs[2].default_value = (1, 1, 1, 1)
         self.material.node_tree.links.new(base_color_node.outputs['Color'], alb_multiple_node.inputs[1])
-
         final_base_node = alb_multiple_node
+
+        if ao_node:
+            ao_multiple_color_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
+            ao_multiple_color_node.blend_type = 'MULTIPLY'
+            ao_multiple_color_node.inputs['Fac'].default_value = 1.0
+            ao_multiple_color_node.inputs[2].default_value = (1, 1, 1, 1)
+            ao_multiple_color_node.location = (final_base_node.location.x + 200, final_base_node.location.y)
+            ao_multiple_color_node.hide = True
+            self.material.node_tree.links.new(final_base_node.outputs['Color'], ao_multiple_color_node.inputs[1])
+            self.material.node_tree.links.new(ao_node.outputs['Color'], ao_multiple_color_node.inputs[2])
+            final_base_node = ao_multiple_color_node
+
         if tcl_node:
             mix_color_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
             mix_color_node.label = 'Tcl Mix'
             mix_color_node.blend_type = 'MIX'
             mix_color_node.inputs[2].default_value = (1, 1, 1, 1)
-            mix_color_node.location = (tcl_node.location.x + 500, tcl_node.location.y)
-
-            # Connect nodes
+            mix_color_node.location = (final_base_node.location.x + 200, final_base_node.location.y)
             self.material.node_tree.links.new(final_base_node.outputs['Color'], mix_color_node.inputs[1])
             self.material.node_tree.links.new(tcl_node.outputs['Color'], mix_color_node.inputs['Fac'])
             final_base_node = mix_color_node
@@ -204,10 +214,11 @@ class MaterialProcessor:
 
     def import_second_color(self):
         trm_node = self.import_texture('_trm', location_y=self.principled_node.location.y + 300)
+        mai_node = self.import_texture('_mai', non_color=True, location_y=self.principled_node.location.y + 500)
+        thc_node = self.import_texture('_thc', non_color=True, location_y=self.principled_node.location.y + 600)
 
-        if not self.principled_node.inputs['Base Color'].is_linked or not trm_node:
+        if not self.principled_node.inputs['Base Color'].is_linked:
             return
-
         base_color_node = self.principled_node.inputs['Base Color'].links[0].from_node
 
         nodes = self.material.node_tree.nodes
@@ -218,44 +229,44 @@ class MaterialProcessor:
         screen_node.blend_type = 'SCREEN'
         screen_node.inputs['Fac'].default_value = 1.0
         screen_node.hide = True
-        screen_node.location = (self.principled_node.location.x - 200, self.principled_node.location.y)
+        screen_node.location = (self.principled_node.location.x, self.principled_node.location.y + 200)
         links.new(base_color_node.outputs['Color'], screen_node.inputs[1])
+        second_texture_node = screen_node
 
         # trm process
-        trm_multiple_node = nodes.new('ShaderNodeMixRGB')
-        trm_multiple_node.label = 'Trm Multiply'
-        trm_multiple_node.blend_type = 'MULTIPLY'
-        trm_multiple_node.inputs['Fac'].default_value = 1.0
-        trm_multiple_node.inputs[2].default_value = (0, 0, 0, 1)
-        trm_multiple_node.location = (trm_node.location.x + 300, trm_node.location.y)
-        links.new(trm_node.outputs['Color'], trm_multiple_node.inputs[1])
+        if trm_node:
+            trm_multiple_node = nodes.new('ShaderNodeMixRGB')
+            trm_multiple_node.label = 'Trm Multiply'
+            trm_multiple_node.blend_type = 'MULTIPLY'
+            trm_multiple_node.inputs['Fac'].default_value = 1.0
+            trm_multiple_node.inputs[2].default_value = (0, 0, 0, 1)
+            trm_multiple_node.location = (trm_node.location.x + 300, trm_node.location.y)
+            links.new(trm_node.outputs['Color'], trm_multiple_node.inputs[1])
 
-        trm_second_screen_node = nodes.new('ShaderNodeMixRGB')
-        trm_second_screen_node.label = 'Trm Second Screen'
-        trm_second_screen_node.blend_type = 'SCREEN'
-        trm_second_screen_node.inputs['Fac'].default_value = 1.0
-        trm_second_screen_node.inputs[2].default_value = (0, 0, 0, 1)
-        links.new(trm_multiple_node.outputs['Color'], trm_second_screen_node.inputs[1])
-        trm_second_screen_node.location = (trm_node.location.x + 500, trm_node.location.y)
-
-        second_texture_node = trm_second_screen_node
+            trm_second_screen_node = nodes.new('ShaderNodeMixRGB')
+            trm_second_screen_node.label = 'Trm Second Screen'
+            trm_second_screen_node.blend_type = 'SCREEN'
+            trm_second_screen_node.inputs['Fac'].default_value = 1.0
+            trm_second_screen_node.inputs[2].default_value = (0, 0, 0, 1)
+            links.new(trm_multiple_node.outputs['Color'], trm_second_screen_node.inputs[1])
+            trm_second_screen_node.location = (trm_node.location.x + 500, trm_node.location.y)
+            second_texture_node = trm_second_screen_node
 
         # mai process
-        mai_node = self.import_texture('_mai', non_color=True, location_y=self.principled_node.location.y + 500)
         if mai_node:
-            second_texture_node = nodes.new('ShaderNodeMixRGB')
-            second_texture_node.blend_type = 'MULTIPLY'
-            second_texture_node.hide = True
-            second_texture_node.location = (mai_node.location.x + 700, mai_node.location.y)
-            second_texture_node.inputs['Fac'].default_value = 1.0
-            links.new(mai_node.outputs['Color'], second_texture_node.inputs[2])
-            links.new(trm_second_screen_node.outputs['Color'], second_texture_node.inputs[1])
+            mai_multiple_node = nodes.new('ShaderNodeMixRGB')
+            mai_multiple_node.blend_type = 'MULTIPLY'
+            mai_multiple_node.hide = True
+            mai_multiple_node.location = (mai_node.location.x + 700, mai_node.location.y)
+            mai_multiple_node.inputs['Fac'].default_value = 1.0
+            links.new(mai_node.outputs['Color'], mai_multiple_node.inputs[2])
+            links.new(second_texture_node.outputs['Color'], mai_multiple_node.inputs[1])
+            second_texture_node = mai_multiple_node
 
-        # connect trm
+        # connect second_texture_node
         links.new(second_texture_node.outputs['Color'], screen_node.inputs[2])
 
         # thc process
-        thc_node = self.import_texture('_thc', non_color=True, location_y=self.principled_node.location.y + 600)
         if thc_node:
             invert_node = nodes.new('ShaderNodeInvert')
             invert_node.hide = True
@@ -273,6 +284,9 @@ class MaterialProcessor:
         and optionally connects _thc as a factor if present.
         """
         trm_node = self.import_texture('_trm', location_y=self.principled_node.location.y + 300)
+        thc_node = self.import_texture('_thc', non_color=True, location_y=self.principled_node.location.y + 600)
+        mai_node = self.import_texture('_mai', non_color=True, location_y=self.principled_node.location.y + 800)
+
         if trm_node:
             nodes = self.material.node_tree.nodes
             links = self.material.node_tree.links
@@ -331,8 +345,6 @@ class MaterialProcessor:
 
             final_shade = knob_mix_shader_node
 
-            # thc process
-            thc_node = self.import_texture('_thc', non_color=True, location_y=self.principled_node.location.y + 600)
             if thc_node:
                 thc_mix_shader_node = nodes.new('ShaderNodeMixShader')
                 thc_mix_shader_node.hide = True
@@ -341,8 +353,6 @@ class MaterialProcessor:
                 links.new(final_shade.outputs['Shader'], thc_mix_shader_node.inputs[1])
                 final_shade = thc_mix_shader_node
 
-            # mai process
-            mai_node = self.import_texture('_mai', non_color=True, location_y=self.principled_node.location.y + 800)
             if mai_node:
                 mai_mix_shader_node = nodes.new('ShaderNodeMixShader')
                 mai_mix_shader_node.hide = True
