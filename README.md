@@ -12,13 +12,18 @@ Once the installer installation is completed, this addon will utilize it.
 
 ### Usage
 1. Go to **Files -> Import -> Splatoon Scene** and select it.
-    - You can use either the typical method shown in the picture or drag & drop.
-![image](https://github.com/user-attachments/assets/ca6ca062-9841-4495-ae76-5fce7cb003b3)
-![image](https://github.com/user-attachments/assets/6bcc49bc-96bf-409a-9888-1e4c3ae6c4f7)
+   - ![image](https://github.com/user-attachments/assets/939d5ab8-db66-48c6-8443-fbd7214e97bb)
+   - Or you can drag and drop. Whatever is comfortable for you!
+     - .dae ![image](https://github.com/user-attachments/assets/d0c724dc-8a62-4c2e-b89c-ce66182e6894)
+     - .fbx ![image](https://github.com/user-attachments/assets/93ab50c9-cdc2-48a6-bf44-c01c0154f238)
+
 2. Select the .dae or .fbx file, then import it.
-   
-![image](https://github.com/user-attachments/assets/8496e3f4-bded-475c-9765-f7688d1745d7)
-That's it. Check the shader section to see if the desired shader is linked.
+   - ![image](https://github.com/user-attachments/assets/ca6ca062-9841-4495-ae76-5fce7cb003b3)
+   - ![image](https://github.com/user-attachments/assets/6bcc49bc-96bf-409a-9888-1e4c3ae6c4f7)
+
+3. That's it. Check the shader section to see if the desired shader is linked.
+    ![image](https://github.com/user-attachments/assets/8496e3f4-bded-475c-9765-f7688d1745d7)
+
 
 ### Additional Usage
 
@@ -29,8 +34,8 @@ That's it. Check the shader section to see if the desired shader is linked.
    - The default value for this addon is 1.0.
 3. This add-on provides two methods for importing the second shader:
    - Mix Color Style: All color textures are mixed first → Converted to a single BSDF → Output
-   - Mix Shader Style: Each color texture is converted to BSDF separately → Mix Shader → Output
-   Import using your preferred style!
+   - Mix Shader Style: Each color texture is converted to BSDF separately → Mix Shader → Output  
+   Import using your preferred style!  
    If you don't want to import the second shader, you can uncheck "Apply Second Shader"
    - If you have your own shading method, feel free to share it through an issue submission!  
      I will review it and consider integrating it into the add-on if appropriate.
