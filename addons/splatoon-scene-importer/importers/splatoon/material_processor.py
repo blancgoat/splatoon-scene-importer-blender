@@ -14,40 +14,18 @@ class MaterialProcessor:
         self.base_color_node = self._init_base_color_node()
 
     def _init_principled_node(self):
-        nodes = self.material.node_tree.nodes
-        links = self.material.node_tree.links
-
-        # 기존 Principled BSDF 찾기
         principled = None
-        for node in nodes:
+        for node in self.material.node_tree.nodes:
             if node.type == 'BSDF_PRINCIPLED':
                 principled = node
                 break
 
-        # 연결 정보 저장
-        input_links = {link.to_socket.name: link.from_node.outputs[link.from_socket.name]
-                       for link in links if link.to_node == principled}
-        output_links = {link.from_socket.name: link.to_node.inputs[link.to_socket.name]
-                        for link in links if link.from_node == principled}
-        principled_location = principled.location
+        if principled is None:
+            principled = self.material.node_tree.nodes.new(type='ShaderNodeBsdfPrincipled')
 
-        # 기존 Principled BSDF 삭제
-        nodes.remove(principled)
+        principled.inputs['Base Color'].default_value = (0, 0, 0, 1)
 
-        # 새로운 Principled BSDF 추가
-        new_principled = nodes.new(type='ShaderNodeBsdfPrincipled')
-        new_principled.location = principled_location
-
-        # 기존 링크 복원
-        for input_name, from_output in input_links.items():
-            if input_name in new_principled.inputs:
-                links.new(from_output, new_principled.inputs[input_name])
-
-        for output_name, to_input in output_links.items():
-            if output_name in new_principled.outputs:
-                links.new(new_principled.outputs[output_name], to_input)
-
-        return new_principled
+        return principled
 
     def _init_base_color_node(self):
         ao_node = self.import_texture('_ao', non_color=True, location_y=self.principled_node.location.y + 50)
