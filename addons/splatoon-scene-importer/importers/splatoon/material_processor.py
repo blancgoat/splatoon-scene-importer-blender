@@ -38,14 +38,7 @@ class MaterialProcessor:
         base_color_node.location = (self.base_x_position, self.principled_node.location.y)
         base_color_node.hide = True
 
-        alb_multiple_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
-        alb_multiple_node.location = (base_color_node.location.x + 300, base_color_node.location.y + 100)
-        alb_multiple_node.label = 'Alb Multiply'
-        alb_multiple_node.blend_type = 'MULTIPLY'
-        alb_multiple_node.inputs['Fac'].default_value = 1.0
-        alb_multiple_node.inputs[2].default_value = (1, 1, 1, 1)
-        self.material.node_tree.links.new(base_color_node.outputs['Color'], alb_multiple_node.inputs[1])
-        final_base_node = alb_multiple_node
+        final_base_node = base_color_node
 
         if ao_node:
             ao_multiple_color_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
