@@ -28,7 +28,7 @@ class MaterialProcessor:
         return principled
 
     def _init_base_color_node(self):
-        ao_node = self.import_texture('_ao', non_color=True, location_y=self.principled_node.location.y + 50)
+        ao_node = self.import_texture('_ao', non_color=True, location_y=self.principled_node.location.y - 50)
         tcl_node = self.import_texture('_tcl', non_color=True, location_y=self.principled_node.location.y + 100)
 
         if not self.principled_node.inputs['Base Color'].is_linked:
@@ -45,7 +45,7 @@ class MaterialProcessor:
             ao_multiple_color_node.blend_type = 'MULTIPLY'
             ao_multiple_color_node.inputs['Fac'].default_value = 1.0
             ao_multiple_color_node.inputs[2].default_value = (1, 1, 1, 1)
-            ao_multiple_color_node.location = (final_base_node.location.x + 200, final_base_node.location.y)
+            ao_multiple_color_node.location = (final_base_node.location.x + 300, final_base_node.location.y)
             ao_multiple_color_node.hide = True
             self.material.node_tree.links.new(final_base_node.outputs['Color'], ao_multiple_color_node.inputs[1])
             self.material.node_tree.links.new(ao_node.outputs['Color'], ao_multiple_color_node.inputs[2])
