@@ -39,13 +39,15 @@ class MaterialProcessor:
         base_color_node.hide = True
 
         final_base_node = base_color_node
+        final_base_node_location_x = final_base_node.location.x + 300
 
         if ao_node:
             ao_multiple_color_node = self.material.node_tree.nodes.new('ShaderNodeMixRGB')
             ao_multiple_color_node.blend_type = 'MULTIPLY'
             ao_multiple_color_node.inputs['Fac'].default_value = 1.0
             ao_multiple_color_node.inputs[2].default_value = (1, 1, 1, 1)
-            ao_multiple_color_node.location = (final_base_node.location.x + 300, final_base_node.location.y)
+            ao_multiple_color_node.location = (final_base_node_location_x, final_base_node.location.y)
+            final_base_node_location_x += 200
             ao_multiple_color_node.hide = True
             self.material.node_tree.links.new(final_base_node.outputs['Color'], ao_multiple_color_node.inputs[1])
             self.material.node_tree.links.new(ao_node.outputs['Color'], ao_multiple_color_node.inputs[2])
@@ -56,7 +58,8 @@ class MaterialProcessor:
             mix_color_node.label = 'Tcl Mix'
             mix_color_node.blend_type = 'MIX'
             mix_color_node.inputs[2].default_value = (1, 1, 1, 1)
-            mix_color_node.location = (final_base_node.location.x + 200, final_base_node.location.y)
+            mix_color_node.location = (final_base_node_location_x, final_base_node.location.y + 100)
+            final_base_node_location_x += 200
             self.material.node_tree.links.new(final_base_node.outputs['Color'], mix_color_node.inputs[1])
             self.material.node_tree.links.new(tcl_node.outputs['Color'], mix_color_node.inputs['Fac'])
             final_base_node = mix_color_node
